@@ -1415,19 +1415,9 @@ function releaseRhiannon() {
   pushUndo();
   ran.energy -= 100;
   S.extraRound = true;
-  S.tuningUsed = { s1: 0, s2: 0 };
   S.deck.push(...S.hand.filter(x => (x.skillId === "s1" || x.skillId === "s2") && !x.tuningTemp));
   S.hand = [];
-  S.maxActionPoints = 4;
-  S.actionPoints = 4;
-  const pendingUlts = S.team.filter(c => c.passion >= 5);
-  for (const c of pendingUlts) {
-    if (S.hand.length >= handLimit()) break;
-    S.hand.unshift({ charId: c.id, skillId: "ult", rank: 0, uid: "ult-" + Math.random().toString(36).slice(2) });
-    log(c.name + " 获得至终的仪式卡（超凡五感）", "buff");
-  }
-  drawCards(Math.max(0, handLimit() - S.hand.length));
-  autoMergeHand();
+  turnStart();
   log("小瑞安侬 释放使役通感：进入超凡五感（额外行动回合，回合数不变）", "buff");
   render();
 }
