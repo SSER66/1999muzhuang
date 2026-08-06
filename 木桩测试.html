@@ -838,8 +838,8 @@ function turnStart() {
       log("莫莉德尔 武装整修：全队暴击率+" + (mld.portray >= 2 ? 40 : 30) + "%，溢出转暴击创伤");
     }
     if (zb >= 20) {
-      for (const t of S.team) addStatus(t.status, "战备部署", 0, 1);
-      log("莫莉德尔 战备部署：全队每层战备仪式伤害+" + (mld.portray >= 2 ? "2.5" : "2") + "%");
+      for (const t of S.team) t.status["战备部署"] = { stacks: zb, dur: 1 };
+      log("莫莉德尔 战备部署：按当前" + zb + "层战备，全队每层仪式伤害+" + (mld.portray >= 2 ? "2.5" : "2") + "%");
     }
     if (zb >= 10 && !mld.status["教条"]) { addStatus(mld.status, "主见", 0, 1); log("莫莉德尔 主见：免疫心神不宁"); }
     if (mld.status["教条"]) { log("莫莉德尔 教条中：无法获得主见"); }
@@ -935,7 +935,7 @@ function calcHit(c, opts) {
   let traumaUp = st.traumaUp;
   if (opts.isUlt && c.status["战备部署"]) {
     const mld = byId("mld");
-    const zb = mld && mld.status["战备"] ? mld.status["战备"].stacks : 0;
+    const zb = c.status["战备部署"].stacks || 0;
     traumaUp += zb * (mld && mld.portray >= 2 ? 2.5 : 2);
   }
   if (opts.isCounter) traumaUp += teamBuffTotal("counterTrauma");
@@ -1733,7 +1733,9 @@ function statusChips(c) {
     if (!st) continue;
     if (["独白", "群像", "筹备·虚构集", "战备", "礼仪：暴击创伤", "四方城"].includes(k) && st.stacks > 0) {
       parts.push('<span class="chip blue">' + STATUS_NAMES[k] + "×" + st.stacks + '</span>');
-    } else if (["加护", "主见", "攻坚", "闪击", "教条", "连续行动Ⅰ", "武装整修", "战备部署", "热处理护盾"].includes(k)) {
+    } else if (k === "战备部署" && st.stacks > 0) {
+      parts.push('<span class="chip gold">战备部署×' + st.stacks + '</span>');
+    } else if (["加护", "主见", "攻坚", "闪击", "教条", "连续行动Ⅰ", "武装整修", "热处理护盾"].includes(k)) {
       parts.push('<span class="chip gold">' + STATUS_NAMES[k] + '</span>');
     } else if (k === "默契同调" && st.stacks > 0) {
       parts.push('<span class="chip green">默契同调×' + st.stacks + '</span>');
