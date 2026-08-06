@@ -1266,7 +1266,7 @@ function castAttack(c, card, skill, extraOpts) {
     const reverie = !!c.def.reverie;
     let burn = 2;
     if (reverie) { mult += mult; burn = 6; }
-    const r = calcHit(c, Object.assign({ mult }, hitOpts));
+    const r = calcHit(c, Object.assign({ mult }, hitOpts, reverie ? { isCounter: true } : {}));
     dealDamage(c, r.dmg, "硬度测试 " + rankName(rank) + "阶", r);
     applyExtract(c);
     applyDummyStatus("燃烧", burn, 0);
@@ -1494,7 +1494,7 @@ function castJUlt(c) {
   let overMult = 0;
   if (c.def.reverie) {
     mult += mult;
-    overMult = overflow * 50;
+    overMult = overflow * (c.portray >= 4 ? 75 : 50);
     const traumaV = Math.min(99, burn * 2.5);
     addTeam("traumaUp", "创伤加成提高", traumaV, 3);
     log("J 狂想：全队创伤加成 +" + traumaV + "%（3回合）", "buff");
@@ -1661,11 +1661,12 @@ function dummyAttack() {
 function castJCounter(c) {
   const reverie = !!c.def.reverie;
   const base = c.portray >= 1 ? 40 : 30;
-  const hpLossExtra = c.portray >= 1 ? 15 : 10;
+  // 狂想Ⅳ：不再按已损生命增伤，改为每层燃烧按原损血增伤的 50% 计算
+  const lostHpBonus = c.portray >= 1 ? 15 : 10;
   let mult = base;
   if (reverie) {
     const burn = c.status["燃烧"] ? c.status["燃烧"].stacks : 0;
-    mult += 900 + burn * (hpLossExtra * 0.5);
+    mult += 900 + burn * (lostHpBonus * 0.5);
   }
   log("J 高温回火反击（护盾队友受击）", "buff");
   const r = calcHit(c, { mult, isCounter: true });
@@ -1673,6 +1674,9 @@ function castJCounter(c) {
   applyDummyStatus("燃烧", 2, 0);
   addStatus(c.status, "燃烧", 2, 0);
   capStacks(c, "燃烧", c.portray >= 3 ? 45 : 35);
+  if (reverie) {
+    for (const t of S.team) addStatus(t.status, "热处理护盾", 0, 3);
+  }
   if (reverie && S.jCounterCount < 2) {
     S.jCounterCount += 1;
     c.passion = Math.min(c.maxPassion, c.passion + 1);
