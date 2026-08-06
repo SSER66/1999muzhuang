@@ -1031,6 +1031,7 @@ function playCard(uid) {
   selectedCard = null;
   moveSource = null;
   c.passion = Math.min(c.maxPassion, c.passion + (isUlt ? 0 : 1));
+  if (!isUlt) syncUltCard(c);
   if (!isUlt) addTuningEnergy(4);
   if (isPrep) castStoryBook();
   else if (isUlt) castUltCard(c);
@@ -1186,6 +1187,7 @@ function castUltCard(c) {
   if (c.id !== "xg") {
     const xg = byId("xg");
     xg.passion = Math.min(xg.maxPassion, xg.passion + 1);
+    syncUltCard(xg);
     if ((c.def.ult.target || "aoe") === "single") {
       addStatus(xg.status, "独白", cost, 0);
       capStacks(xg, "独白", 40);
@@ -1275,6 +1277,7 @@ function distributeUltPassion(extra) {
     }
     if (!target) break;
     target.passion += 1;
+    syncUltCard(target);
     log("虚构集 大招返还： " + target.name + " 激情+1", "buff");
   }
 }
@@ -1344,7 +1347,9 @@ function castStoryBook() {
   else if (target.id === "j") castJUlt(target);
   else if (target.id === "ran") castRanUltFromStory(target);
   target.passion = Math.min(target.maxPassion, cost); // 回复消耗的激情（上限为释放所需）
+  syncUltCard(target);
   xg.passion = Math.min(xg.maxPassion, xg.passion + 1);
+  syncUltCard(xg);
   const reverieMult = xg.def.reverie ? 2 : 1;
   const gain = cost * reverieMult;
   if ((target.def.ult.target || "aoe") === "single") {
@@ -1382,11 +1387,17 @@ function releaseRhiannon() {
   pushUndo();
   ran.energy -= 100;
   S.extraRound = true;
-  S.deck.push(...S.hand.filter(x => x.skillId === "s1" || x.skillId === "s2"));
+  S.deck.push(...S.hand.filter(x => (x.skillId === "s1" || x.skillId === "s2") && !x.tuningTemp));
   S.hand = [];
   S.maxActionPoints = 4;
   S.actionPoints = 4;
-  drawCards(handLimit());
+  const pendingUlts = S.team.filter(c => c.passion >= 5);
+  for (const c of pendingUlts) {
+    if (S.hand.length >= handLimit()) break;
+    S.hand.unshift({ charId: c.id, skillId: "ult", rank: 0, uid: "ult-" + Math.random().toString(36).slice(2) });
+    log(c.name + " 获得至终的仪式卡（超凡五感）", "buff");
+  }
+  drawCards(Math.max(0, handLimit() - S.hand.length));
   autoMergeHand();
   log("小瑞安侬 释放使役通感：进入超凡五感（额外行动回合，回合数不变）", "buff");
   render();
@@ -1411,6 +1422,7 @@ function endTurn() {
   if (ran && ran.status["默契同调"] && ran.status["默契同调"].stacks > 0) {
     ran.status["默契同调"].stacks -= 1;
     ran.passion = Math.min(ran.maxPassion, ran.passion + 1);
+    syncUltCard(ran);
     log("小瑞安侬 回合结束：默契同调换激情+1", "buff");
   }
   if (!S.extraRound) dummyAttack();
@@ -1453,6 +1465,7 @@ function dummyAttack() {
     }
     const gain = mld.portray >= 3 ? 2 : 1;
     mld.passion = Math.min(mld.maxPassion, mld.passion + gain);
+    syncUltCard(mld);
     log("莫莉德尔 反击后激情+" + gain, "buff");
   }
   const j = byId("j");
@@ -1480,6 +1493,7 @@ function castJCounter(c) {
   if (reverie && S.jCounterCount < 2) {
     S.jCounterCount += 1;
     c.passion = Math.min(c.maxPassion, c.passion + 1);
+    syncUltCard(c);
     log("J 狂想：反击后激情+1（" + S.jCounterCount + "/2）", "buff");
   }
 }
@@ -1550,6 +1564,7 @@ function mergeCards(uidA, uidB) {
   if (a.charId !== b.charId || a.skillId !== b.skillId || a.rank !== b.rank || a.rank >= 3) return;
   const c = byId(a.charId);
   c.passion = Math.min(c.maxPassion, c.passion + 1);
+  syncUltCard(c);
   a.rank += 1;
   delete a.tuningTemp;
   addTuningEnergy(S.tuning === "initial" ? 2 : 5);
@@ -1790,6 +1805,7 @@ function moveTo(uid, targetIndex) {
   }
   const c = card.charId ? byId(card.charId) : null;
   if (!freeMove && c) c.passion = Math.min(c.maxPassion, c.passion + 1);
+  if (!freeMove && c) syncUltCard(c);
   const who = c ? c.name : "万能卡";
   const other = canMergeWith(card.uid);
   if (other) {
