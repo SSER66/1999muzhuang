@@ -1,0 +1,2190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>测试木桩 DPR 工具</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --panel: #ffffff;
+    --line: #d9e1ea;
+    --ink: #1b2430;
+    --muted: #5f6b7a;
+    --accent: #1769aa;
+    --accent-soft: #e8f1f9;
+    --good: #1f7a4d;
+    --warn: #9a6a00;
+    --bad: #a03535;
+    --chip: #eef1f5;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+    font-size: 14px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    background: #123a5c;
+    color: #fff;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header .stats { display: flex; gap: 14px; margin-left: auto; font-size: 13px; }
+  header .stats b { color: #ffd479; }
+  button {
+    font: inherit;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--bad); }
+  .wrap {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr) 330px;
+    gap: 12px;
+    padding: 12px 16px;
+    align-items: start;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .panel h2 { margin: 0 0 8px; font-size: 14px; color: #123a5c; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .hpbar, .apbar {
+    height: 12px;
+    background: #e3e8ee;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 4px 0 8px;
+  }
+  .hpbar > div { height: 100%; background: #3ba55d; }
+  .apbar > div { height: 100%; background: #f0b429; }
+  .kv { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; font-size: 12px; }
+  .kv span:last-child { font-weight: 600; }
+  .team {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(150px, 1fr));
+    gap: 8px;
+  }
+  .char {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px;
+    background: #fbfcfe;
+    position: relative;
+  }
+  .char h3 { margin: 0 0 4px; font-size: 14px; }
+  .char .passion { font-size: 12px; color: var(--muted); }
+  .char .dmg { font-size: 12px; margin-top: 4px; }
+  .char .dmg b { color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; min-height: 18px; }
+  .chip {
+    background: var(--chip);
+    border: 1px solid #d8dee6;
+    border-radius: 4px;
+    font-size: 11px;
+    padding: 1px 5px;
+    color: #33404f;
+  }
+  .chip.blue { background: #e3effa; border-color: #b8d3ea; color: #155a91; }
+  .chip.gold { background: #fdf3d8; border-color: #e7cf96; color: #7a5a00; }
+  .chip.red { background: #fbe6e6; border-color: #e6b8b8; color: #8c2f2f; }
+  .chip.green { background: #e4f4ea; border-color: #b7ddc8; color: #1f6e43; }
+  .hand {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 8px;
+    margin: 10px 0;
+  }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px;
+    background: #fff;
+    cursor: pointer;
+    min-height: 92px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: box-shadow .12s;
+  }
+  .card:hover { box-shadow: 0 2px 8px rgba(18,58,92,.12); }
+  .card.selected { outline: 2px solid var(--accent); }
+  .card.moving { outline: 2px solid #d69e2e; }
+  .card .cname { font-size: 11px; color: var(--muted); }
+  .card .sname { font-weight: 600; font-size: 13px; }
+  .card .rank { font-size: 11px; color: #155a91; }
+  .card .actions { margin-top: auto; display: flex; gap: 4px; }
+  .card .actions button { font-size: 11px; padding: 3px 6px; }
+  .move-targets { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; align-items: center; }
+  .move-targets button { font-size: 11px; padding: 3px 7px; }
+  .actions-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .log {
+    height: calc(100vh - 150px);
+    min-height: 420px;
+    overflow: auto;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .log div { border-bottom: 1px dashed #e2e8ef; padding: 3px 2px; }
+  .log .crit { color: var(--good); }
+  .log .buff { color: var(--warn); }
+  .config details { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
+  .config label { display: block; font-size: 12px; margin: 5px 0 2px; color: var(--muted); }
+  .config select, .config input {
+    width: 100%;
+    padding: 5px 6px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    font: inherit;
+  }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 8px 0;
+  }
+  .summary .cell {
+    background: #fbfcfe;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px;
+    text-align: center;
+  }
+  .summary .num { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .summary .lbl { font-size: 12px; color: var(--muted); }
+  @media (max-width: 1100px) {
+    .wrap { grid-template-columns: 1fr; }
+    .team { grid-template-columns: repeat(2, 1fr); }
+    .hand { grid-template-columns: repeat(2, 1fr); }
+    .log { height: 300px; }
+  }
+  @media (max-width: 640px) {
+    .team, .hand, .summary { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>测试木桩 DPR 工具</h1>
+  <div class="stats">
+    <span>回合 <b id="round">1</b></span>
+    <span>行动点 <b id="ap">4/4</b></span>
+    <span>全队总伤 <b id="total">0</b></span>
+    <span>当前回合 <b id="roundDmg">0</b></span>
+    <span>平均 DPR <b id="avgDpr">0</b></span>
+  </div>
+  <button class="primary" onclick="resetBattle()">重置战斗</button>
+</header>
+
+<div class="wrap">
+  <aside class="panel">
+    <h2>木桩</h2>
+    <div id="dummyView"></div>
+    <details class="config">
+      <summary>木桩配置</summary>
+      <label for="cfgDefR">现实防御</label><input id="cfgDefR" name="cfgDefR" type="number" value="1300">
+      <label for="cfgDefM">精神防御</label><input id="cfgDefM" name="cfgDefM" type="number" value="1300">
+      <label for="cfgCritRes">抗爆率 %</label><input id="cfgCritRes" name="cfgCritRes" type="number" value="0">
+      <label for="cfgCritDef">暴击防御 %</label><input id="cfgCritDef" name="cfgCritDef" type="number" value="20">
+      <label for="cfgTraumaRes">受创减免 %</label><input id="cfgTraumaRes" name="cfgTraumaRes" type="number" value="30">
+      <label for="cfgAdv">克制系数 %</label><input id="cfgAdv" name="cfgAdv" type="number" value="30">
+      <label for="cfgAfflatus">灵感</label>
+      <select id="cfgAfflatus">
+        <option value="智" selected>智</option>
+        <option value="星">星</option>
+        <option value="岩">岩</option>
+        <option value="兽">兽</option>
+        <option value="木">木</option>
+        <option value="灵">灵</option>
+      </select>
+      <button class="primary" style="margin-top:8px" onclick="applyDummyConfig()">应用</button>
+    </details>
+    <div id="configPanel" class="config"></div>
+
+    <h2>调律</h2>
+    <label for="tuningSelect">调律选择</label>
+    <select id="tuningSelect" onchange="setTuning(this.value)">
+      <option value="unfinished">未尽的调律</option>
+      <option value="initial">最初的刻度</option>
+    </select>
+    <div id="tuningPanel"></div>
+  </aside>
+
+  <main>
+    <section class="panel">
+      <h2>我方队伍</h2>
+      <div class="team" id="teamView"></div>
+      <div class="summary">
+        <div class="cell"><div class="num" id="sumTeam">0</div><div class="lbl">本回合队伍总伤</div></div>
+        <div class="cell"><div class="num" id="sumTotal">0</div><div class="lbl">累计总伤</div></div>
+        <div class="cell"><div class="num" id="sumDpr">0</div><div class="lbl">本回合 DPR</div></div>
+        <div class="cell"><div class="num" id="sumAvg">0</div><div class="lbl">平均 DPR</div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>手牌</h2>
+      <div class="hand" id="handView"></div>
+      <div class="actions-row">
+        <button onclick="endTurn()" class="primary">结束回合</button>
+        <button onclick="undoLast()" id="undoBtn" disabled>撤回上一步</button>
+        <button onclick="clearLog()">清空日志</button>
+        <button onclick="toggleDeck()">牌库查询</button>
+        <span class="muted">打出 / 移动 / 相邻合成</span>
+      </div>
+      <div id="deckView" style="display:none" class="panel"></div>
+    </section>
+
+    <section class="panel">
+      <h2>特殊行动</h2>
+      <div class="btn-row" id="ultRow"></div>
+    </section>
+  </main>
+
+  <aside class="panel">
+    <h2>伤害日志</h2>
+    <div class="log" id="logView"></div>
+  </aside>
+</div>
+
+<script src="data/resonance_main.js"></script>
+<script src="data/resonance_presets.js"></script>
+<script src="data/resonance_dict.js"></script>
+<script src="data/portray.js"></script>
+<script>
+"use strict";
+
+const AFFLATUS_ADV = { "星": "岩", "岩": "兽", "兽": "木", "木": "星", "灵": "智", "智": "灵" };
+
+const PSYCHUBES = {
+  lastRoll: {
+    id: "lastRoll", name: "最后的投掷",
+    flat: { atk: 380, hp: 2800, defR: 150, defM: 160 },
+    main: { critRate: 16 },
+    amp: { ritPerPassion: 2.4, critPerPassion: 2, cap: 16 }
+  },
+  rain: {
+    id: "rain", name: "昨日雨声轻",
+    flat: { atk: 390, hp: 3000, defR: 160, defM: 160 },
+    main: { traumaRes: 12 },
+    amp: { startAtk: 8, startHp: 8, spellTeamDmg: 2.4, ultTeamCrit: 16 }
+  },
+  outside: {
+    id: "outside", name: "在四方城外",
+    flat: { atk: 370, hp: 2400, defR: 170, defM: 160 },
+    main: { critRate: 16 },
+    amp: { extraCritDmg: 4, cap: 10, fullCritRate: 16 }
+  },
+  family: {
+    id: "family", name: "家庭指导员",
+    flat: { atk: 360, hp: 3000, defR: 160, defM: 160 },
+    main: { hp: 16 },
+    amp: { counterRitual: 8, passionCrit: 0.8, cap: 30 }
+  }
+};
+
+const RESONANCE = {
+  xg: {
+    flat: { atk: 138, hp: 915, defR: 75, defM: 76 },
+    pct: { atk: 10.5, hp: 8, defR: 6, defM: 6, critRate: 20.5, critRes: 11, critDmg: 14.5, traumaUp: 6, traumaRes: 8, critDef: 5 }
+  },
+  mld: {
+    flat: { atk: 138, hp: 915, defR: 78, defM: 76 },
+    pct: { atk: 10.5, hp: 8, defR: 6, defM: 6, critRate: 14.5, critRes: 19, critDmg: 12.5, traumaUp: 8, traumaRes: 13, critDef: 5 }
+  },
+  ran: {
+    flat: { atk: 158, hp: 858, defR: 61, defM: 61 },
+    pct: { atk: 10.5, hp: 8, defR: 6, defM: 6, critRate: 17.5, critRes: 19, critDmg: 6.5, traumaUp: 8, traumaRes: 10, critDef: 5 }
+  },
+  j: {
+    flat: { atk: 129, hp: 944, defR: 84, defM: 84 },
+    pct: { atk: 10.5, hp: 8, defR: 6, defM: 6, critRate: 14.5, critRes: 19, critDmg: 12.5, traumaUp: 8, traumaRes: 13, critDef: 5 }
+  }
+};
+
+let RESONANCE15 = JSON.parse(JSON.stringify(RESONANCE));
+
+const CHARACTERS = {
+  xg: {
+    id: "xg", name: "虚构集", afflatus: "岩", trauma: "现实",
+    base: { atk: 1153, hp: 6270, defR: 515, defM: 525, critTech: 456 },
+    reverie: { stats: { atk: 106, hp: 585, defR: 49, defM: 54, ritualPower: 20 } },
+    maxPassion: 15, defaultPsychube: "lastRoll",
+    skills: [
+      { id: "s1", name: "字的隐喻", mult: [100, 150, 250], target: "single", type: "attack" },
+      { id: "s2", name: "词的意象", mult: [120, 180, 300], target: "aoe", type: "attack" }
+    ],
+    ult: { name: "下现实主义迷宫", mult: 450, mainExtra: 450, target: "aoe" }
+  },
+  mld: {
+    id: "mld", name: "莫莉德尔", afflatus: "兽", trauma: "现实",
+    base: { atk: 1153, hp: 6270, defR: 538, defM: 525, critTech: 420 },
+    reverie: null,
+    maxPassion: 5, defaultPsychube: "family",
+    skills: [
+      { id: "s1", name: "将过往摧毁", mult: [100, 150, 250], target: "single", type: "attack" },
+      { id: "s2", name: "将明日弥合", mult: [0, 0, 0], target: "self", type: "counter" }
+    ],
+    ult: { name: "不再迷失的归途者", mult: 400, activeExtra: 300, target: "aoe" }
+  },
+  ran: {
+    id: "ran", name: "小瑞安侬", afflatus: "兽", trauma: "精神",
+    base: { atk: 1318, hp: 6600, defR: 492, defM: 492, critTech: 420 },
+    reverie: null,
+    maxPassion: 5, defaultPsychube: "rain",
+    skills: [
+      { id: "s1", name: "囫囵囵咒", mult: [200, 300, 500], multAmp: [400, 600, 1000], target: "aoe", type: "attack" },
+      { id: "s2", name: "悄冥冥术阵", mult: [0, 0, 0], target: "team", type: "buff" }
+    ],
+    ult: { name: "唱予无忧之诗", type: "buff", target: "aoe" }
+  },
+  j: {
+    id: "j", name: "J", afflatus: "兽", trauma: "现实",
+    base: { atk: 1077, hp: 6468, defR: 577, defM: 577, critTech: 515 },
+    reverie: { stats: { atk: 98, hp: 590, defR: 52, defM: 52, counterTrauma: 10 } },
+    maxPassion: 5, defaultPsychube: "outside",
+    skills: [
+      { id: "s1", name: "硬度测试", mult: [180, 270, 450], target: "single", type: "attack" },
+      { id: "s2", name: "热处理", mult: [0, 0, 0], target: "team", type: "counter" }
+    ],
+    ult: { name: "飞跃海特街！", mult: 350, target: "aoe" }
+  }
+};
+
+const ORDER = ["xg", "mld", "ran", "j"];
+const STATUS_NAMES = {
+  "独白": "独白", "群像": "群像", "筹备·虚构集": "筹备",
+  "战备": "战备", "主见": "主见", "闪击": "闪击", "攻坚": "攻坚",
+  "教条": "教条", "礼仪：暴击创伤": "礼仪", "连续行动Ⅰ": "连续行动",
+  "默契同调": "默契同调", "灵犀": "灵犀", "加护": "加护", "尘酿鹰": "尘酿鹰",
+  "群鸟之歌": "群鸟之歌", "燃烧": "燃烧", "战备部署": "战备部署", "武装整修": "武装整修",
+  "四方城": "四方城", "热处理护盾": "热处理"
+};
+
+const RESONANCE_BLOCK_ATTRS = [
+  [0, 0.03, 0.04, 0, 0, 0, 0],
+  [0, 0, 0.07, 0.04, 0, 0, 0],
+  [0, 0.04, 0.03, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0.035, 0, 0, 0, 0, 0, 0],
+  [0.035, 0, 0, 0, 0, 0, 0],
+  [0.035, 0, 0, 0, 0, 0, 0],
+  [0.015, 0, 0.025, 0, 0, 0, 0],
+  [0, 0, 0, 0.04, 0, 0, 0],
+  [0, 0.005, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0]
+];
+
+const RESONANCE_MODE_VARIANTS = {
+  X: {
+    "洞彻": [0.28, 0, 0.16, 0.15, 0, 0.20, 0],
+    "赤诚": [0.28, 0, 0.16, 0.15, 0.16, 0, 0],
+    "恍然惊诧": [0.37, 0, 0.23, 0, 0, 0, 0],
+    "希冀": [0.28, 0, 0.16, 0.36, 0, 0, 0],
+    "瞬息迷狂": [0.28, 0, 0.10, 0.20, 0, 0, 0],
+    "平和": [0.23, 0, 0.08, 0.15, 0, 0, 0]
+  },
+  T: {
+    "洞彻": [0.23, 0.10, 0, 0.06, 0, 0.20, 0.12],
+    "赤诚": [0.23, 0.10, 0, 0.06, 0.16, 0, 0.12],
+    "亢奋": [0.42, 0.10, 0, 0.06, 0, 0, 0],
+    "鼓舞": [0.23, 0.32, 0, 0.06, 0, 0, 0],
+    "纵情狂想": [0.29, 0.16, 0, 0, 0, 0, 0],
+    "平和": [0.23, 0.10, 0, 0.06, 0, 0, 0]
+  },
+  U: {
+    "亢奋": [0.42, 0, 0, 0, 0, 0, 0],
+    "餍足": [0.23, 0, 0, 0, 0, 0, 0],
+    "沉静": [0.23, 0, 0, 0, 0, 0, 0],
+    "节制": [0.23, 0, 0, 0, 0, 0, 0],
+    "安恬泰然": [0.32, 0, 0, 0, 0, 0, 0],
+    "平和": [0.23, 0.04, 0.06, 0, 0, 0, 0]
+  },
+  Z: {
+    "洞彻": [0.23, 0.12, 0, 0.18, 0, 0.20, 0],
+    "赤诚": [0.23, 0.12, 0, 0.18, 0.16, 0, 0],
+    "怜悯": [0.16, 0, 0, 0, 0, 0, 0],
+    "安恬泰然": [0, 0.14, 0, 0.18, 0, 0, 0],
+    "循序平衡": [0.29, 0.08, 0, 0.18, 0, 0, 0],
+    "平和": [0.23, 0.04, 0, 0.18, 0, 0, 0]
+  }
+};
+
+const RESONANCE_BLOCK_ATTRS_SURV = [
+  [0, 0, 0, 0.025, 0, 0, 0],
+  [0, 0, 0, 0, 0.02, 0, 0],
+  [0, 0, 0, 0, 0.02, 0, 0],
+  [0, 0, 0, 0.05, 0.06, 0.06, 0],
+  [0, 0.035, 0.035, 0, 0, 0, 0],
+  [0.035, 0.035, 0, 0, 0, 0, 0],
+  [0.035, 0, 0.035, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0.01, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0.005, 0, 0, 0]
+];
+
+const RESONANCE_MODE_VARIANTS_SURV = {
+  X: {
+    "洞彻": [0, 0.28, 0.28, 0.03, 0, 0, 0],
+    "赤诚": [0, 0.28, 0.28, 0.03, 0, 0, 0],
+    "恍然惊诧": [0.46, 0, 0, 0.03, 0.04, 0, 0],
+    "希冀": [0, 0.28, 0.28, 0.03, 0, 0, 0],
+    "瞬息迷狂": [0.32, 0.37, 0.37, 0.03, 0, 0, 0],
+    "平和": [0.28, 0.28, 0.28, 0.03, 0.04, 0, 0]
+  },
+  T: {
+    "洞彻": [0.28, 0, 0, 0, 0, 0, 0],
+    "赤诚": [0.28, 0, 0, 0, 0, 0, 0],
+    "亢奋": [0.28, 0, 0, 0, 0, 0, 0],
+    "鼓舞": [0.28, 0, 0, 0, 0, 0, 0],
+    "纵情狂想": [0.37, 0.35, 0.35, 0, 0, 0, 0],
+    "平和": [0.28, 0.28, 0.28, 0, 0.04, 0.05, 0]
+  },
+  U: {
+    "亢奋": [0.25, 0.2, 0.24, 0, 0.1, 0, 0],
+    "餍足": [0.56, 0.2, 0.24, 0, 0.1, 0, 0],
+    "沉静": [0.25, 1, 0, 0, 0.1, 0, 0],
+    "节制": [0.25, 0, 1, 0, 0.1, 0, 0],
+    "安恬泰然": [0.32, 0.31, 0.31, 0.08, 0.16, 0, 0],
+    "平和": [0.25, 0.24, 0.24, 0.04, 0.16, 0, 0]
+  },
+  Z: {
+    "洞彻": [0.19, 0.19, 0.19, 0, 0, 0, 0],
+    "赤诚": [0.19, 0.19, 0.19, 0, 0, 0, 0],
+    "怜悯": [0.28, 0.28, 0.28, 0.16, 0.1, 0, 0.1],
+    "安恬泰然": [0.53, 0.53, 0.53, 0, 0, 0, 0],
+    "循序平衡": [0.35, 0.35, 0.35, 0.1, 0, 0, 0],
+    "平和": [0.28, 0.28, 0.28, 0.08, 0.1, 0, 0]
+  }
+};
+
+const RESONANCE_MODE_LIMITS = {
+  X: [2, 4, 1, 1, 2, 2, 2, 4, 3, 2, 2],
+  T: [2, 1, 4, 1, 2, 2, 2, 4, 3, 2, 2],
+  U: [2, 2, 1, 3, 2, 2, 2, 4, 3, 2, 2],
+  Z: [3, 2, 2, 1, 2, 2, 2, 4, 3, 2, 2]
+};
+
+const RESONANCE_BLOCK_SIZE = [4, 4, 4, 4, 4, 4, 4, 3, 2, 1, 1];
+
+const RESONANCE_VARIANT_CODE = {
+  X: { "洞彻": 1, "赤诚": 2, "恍然惊诧": 3, "希冀": 4, "瞬息迷狂": 5, "平和": 0 },
+  T: { "洞彻": 1, "赤诚": 2, "亢奋": 3, "鼓舞": 4, "纵情狂想": 5, "平和": 0 },
+  U: { "亢奋": 1, "餍足": 2, "沉静": 3, "节制": 4, "安恬泰然": 5, "平和": 0 },
+  Z: { "洞彻": 1, "赤诚": 2, "怜悯": 3, "安恬泰然": 4, "循序平衡": 5, "平和": 0 }
+};
+
+const CHAR_MODE = { xg: "X", mld: "Z", ran: "U", j: "Z" };
+
+const VARIANT_LISTS = {
+  xg: ["平和", "洞彻", "赤诚", "恍然惊诧", "希冀", "瞬息迷狂"],
+  mld: ["平和", "洞彻", "赤诚", "怜悯", "安恬泰然", "循序平衡"],
+  ran: ["平和", "亢奋", "餍足", "沉静", "节制", "安恬泰然"],
+  j: ["平和", "洞彻", "赤诚", "怜悯", "安恬泰然", "循序平衡"]
+};
+
+const TUNING_DELTA = {
+  xg: {
+    "平和": { atk: 0, critRate: 0, critDmg: 0, traumaUp: 0, spellPower: 0, ritualPower: 0 },
+    "洞彻": { atk: 30, critRate: 6, critDmg: 0, traumaUp: 0, spellPower: 0, ritualPower: 10 },
+    "赤诚": { atk: 30, critRate: 6, critDmg: 0, traumaUp: 0, spellPower: 8, ritualPower: 0 },
+    "恍然惊诧": { atk: 83, critRate: 6, critDmg: -8, traumaUp: 0, spellPower: 0, ritualPower: 0 },
+    "希冀": { atk: 30, critRate: 6, critDmg: 10, traumaUp: 0, spellPower: 0, ritualPower: 0 },
+    "瞬息迷狂": { atk: 30, critRate: 2, critDmg: 4, traumaUp: 0, spellPower: 0, ritualPower: 0 }
+  },
+  mld: {
+    "平和": { atk: 0, critRate: 0, critDmg: 0, traumaUp: 0, spellPower: 0, ritualPower: 0 },
+    "洞彻": { atk: 0, critRate: 0, critDmg: 0, traumaUp: 4, spellPower: 0, ritualPower: 10 },
+    "赤诚": { atk: 0, critRate: 0, critDmg: 0, traumaUp: 4, spellPower: 8, ritualPower: 0 },
+    "怜悯": { atk: -43, critRate: 0, critDmg: 0, traumaUp: -2, spellPower: 0, ritualPower: 0 },
+    "安恬泰然": { atk: -138, critRate: 0, critDmg: 0, traumaUp: 5, spellPower: 0, ritualPower: 0 },
+    "循序平衡": { atk: 36, critRate: 0, critDmg: 0, traumaUp: 2, spellPower: 0, ritualPower: 0 }
+  },
+  ran: {
+    "平和": { atk: 0, critRate: 0, critDmg: 0, traumaUp: 0, spellPower: 0, ritualPower: 0 },
+    "亢奋": { atk: 129, critRate: -3, critDmg: 0, traumaUp: -2, spellPower: 0, ritualPower: 0 },
+    "餍足": { atk: 0, critRate: -3, critDmg: 0, traumaUp: -2, spellPower: 0, ritualPower: 0 },
+    "沉静": { atk: 0, critRate: -3, critDmg: 0, traumaUp: -2, spellPower: 0, ritualPower: 0 },
+    "节制": { atk: 0, critRate: -3, critDmg: 0, traumaUp: -2, spellPower: 0, ritualPower: 0 },
+    "安恬泰然": { atk: 60, critRate: -3, critDmg: 0, traumaUp: -2, spellPower: 0, ritualPower: 0 }
+  },
+  j: {
+    "平和": { atk: 0, critRate: 0, critDmg: 0, traumaUp: 0, spellPower: 0, ritualPower: 0 },
+    "洞彻": { atk: 0, critRate: 0, critDmg: 0, traumaUp: 4, spellPower: 0, ritualPower: 10 },
+    "赤诚": { atk: 0, critRate: 0, critDmg: 0, traumaUp: 4, spellPower: 8, ritualPower: 0 },
+    "怜悯": { atk: -40, critRate: 0, critDmg: 0, traumaUp: -2, spellPower: 0, ritualPower: 0 },
+    "安恬泰然": { atk: -129, critRate: 0, critDmg: 0, traumaUp: 5, spellPower: 0, ritualPower: 0 },
+    "循序平衡": { atk: 33, critRate: 0, critDmg: 0, traumaUp: 2, spellPower: 0, ritualPower: 0 }
+  }
+};
+
+const LAST_PORTRAY = {};
+let S = null;
+let selectedCard = null;
+let moveSource = null;
+let undoStack = [];
+
+function emptyStatus() { return {}; }
+
+function addStatus(obj, id, stacks, dur) {
+  if (!obj[id]) obj[id] = { stacks: 0, dur: 0 };
+  obj[id].stacks += stacks || 0;
+  obj[id].dur = Math.max(obj[id].dur, dur || 0);
+}
+
+function handLimit() {
+  return S.tuning === "unfinished" ? 9 : 8;
+}
+
+function addTuningEnergy(n) {
+  if (S && S.tuningEnergy !== undefined) S.tuningEnergy = Math.min(99, S.tuningEnergy + n);
+}
+
+function addPrepStacks(c, stacks, dur) {
+  const obj = c.status;
+  const id = "战备";
+  if (!obj[id]) obj[id] = { stacks: 0, batches: [] };
+  obj[id].batches.push({ stacks, dur });
+  obj[id].stacks += stacks;
+  // 超过 50：新覆盖旧，从最早获得的批次开始丢弃
+  while (obj[id].stacks > 50 && obj[id].batches.length > 0) {
+    const old = obj[id].batches.shift();
+    obj[id].stacks = Math.max(0, obj[id].stacks - old.stacks);
+  }
+}
+
+function makeChar(id, cfg) {
+  const def = CHARACTERS[id];
+  const ps = PSYCHUBES[def.defaultPsychube];
+  const conf = cfg || {};
+  const resCfg = conf.customRes || null;
+  const c = {
+    id, name: def.name, def,
+    psychube: conf.psychube || def.defaultPsychube,
+    resonanceMode: conf.resonanceMode || "r10",
+    variant: conf.variant || "平和",
+    portray: conf.portray !== undefined ? conf.portray : (LAST_PORTRAY[id] || 0),
+    customRes: {
+      flat: Object.assign({ atk: 0, hp: 0, defR: 0, defM: 0 }, resCfg ? resCfg.flat : {}),
+      pct: Object.assign({ atk: 0, hp: 0, defR: 0, defM: 0, critRate: 0, critDmg: 0, traumaUp: 0, spellPower: 0, ritualPower: 0, pen: 0, critRes: 0, traumaRes: 0, critDef: 0 }, resCfg ? resCfg.pct : {})
+    },
+    passion: 0, maxPassion: def.maxPassion,
+    energy: 0, status: emptyStatus(), buffs: { atkUp: { v: 0, d: 0 }, maxHpUp: { v: 0, d: 0 } },
+    dmgRound: 0, dmgTotal: 0,
+    stats: null
+  };
+  if (id === "xg") { c.passion = 3; addStatus(c.status, "筹备·虚构集", 1, 0); }
+  if (id === "ran") {
+    c.energy = c.portray >= 5 ? 100 : (c.portray >= 2 ? 85 : 70);
+    c.passion = c.portray >= 1 ? 5 : 3;
+    addStatus(c.status, "默契同调", 0, 0);
+  }
+  if (id === "mld") { addPrepStacks(c, 10, 2); }
+  return c;
+}
+
+function refreshStats() {
+  for (const c of S.team) {
+    const def = c.def;
+    const ps = PSYCHUBES[c.psychube];
+    const rev = def.reverie ? def.reverie.stats : { atk: 0, hp: 0, defR: 0, defM: 0, ritualPower: 0, counterTrauma: 0 };
+    const res = currentResonance(c);
+    const useMainRes = c.resonanceMode !== "custom" && !!resonanceMain(c.id, c.resonanceMode === "r15" ? 15 : 10, c.variant);
+    const baseAtk = def.base.atk + rev.atk;
+    const baseHp = def.base.hp + rev.hp;
+    const baseDefR = def.base.defR + rev.defR;
+    const baseDefM = def.base.defM + rev.defM;
+    let atk = baseAtk + ps.flat.atk + res.flat.atk + baseAtk * res.pct.atk / 100;
+    let hp = baseHp + ps.flat.hp + res.flat.hp + baseHp * res.pct.hp / 100;
+    let defR = baseDefR + ps.flat.defR + res.flat.defR + baseDefR * res.pct.defR / 100;
+    let defM = baseDefM + ps.flat.defM + res.flat.defM + baseDefM * res.pct.defM / 100;
+    if (ps.main.hp) hp += hp * ps.main.hp / 100;
+    // 昨日雨声轻：百灵百验进战属性（增幅5）
+    if (c.id === "ran" && c.psychube === "rain") {
+      atk += baseAtk * ps.amp.startAtk / 100;
+      hp += baseHp * ps.amp.startHp / 100;
+    }
+    const hpUp = c.buffs.maxHpUp.v;
+    hp = Math.round(hp * (1 + hpUp / 100));
+    let critRate = def.base.critTech / 3000 * 100 + res.pct.critRate;
+    let critDmg = 130 + def.base.critTech / 2000 * 100 + res.pct.critDmg;
+    critRate += ps.main.critRate || 0;
+    let spellPower = 0, ritualPower = 0, traumaUp = 0, critDmgExtra = 0;
+    if (c.id === "xg" && c.def.reverie) ritualPower += rev.ritualPower || 0;
+    // 群鸟之歌（全队）
+    if (S.teamBuffs.spellPower.d > 0) spellPower += S.teamBuffs.spellPower.v;
+    if (S.teamBuffs.ritualPower.d > 0) ritualPower += S.teamBuffs.ritualPower.v;
+    if (S.teamBuffs.traumaUp.d > 0) traumaUp += S.teamBuffs.traumaUp.v;
+    if (S.teamBuffs.dmgUp.d > 0) traumaUp += S.teamBuffs.dmgUp.v;
+    critDmgExtra += S.teamBuffs.critDmgUp.d > 0 ? S.teamBuffs.critDmgUp.v : 0;
+    if (res.pct.spellPower) spellPower += res.pct.spellPower;
+    if (res.pct.ritualPower) ritualPower += res.pct.ritualPower;
+    if (res.pct.traumaUp) traumaUp += res.pct.traumaUp;
+    // 武装整修（全队）/ 教条（莫莉德尔）
+    const mldBuff = byId("mld");
+    if (c.status["武装整修"]) critRate += mldBuff && mldBuff.portray >= 2 ? 40 : 30;
+    if (c.id === "mld" && c.status["教条"]) ritualPower += c.portray >= 5 ? 30 : 20;
+    // 礼仪：暴击创伤（释放仪式时）
+    if (c.status["礼仪：暴击创伤"]) critDmgExtra += c.status["礼仪：暴击创伤"].stacks * 3;
+    // 在四方城外（额外行动后暴击创伤）
+    if (c.psychube === "outside" && c.status["四方城"] && c.status["四方城"].stacks > 0) {
+      const ps2 = PSYCHUBES.outside;
+      critDmgExtra += ps2.amp.extraCritDmg * c.status["四方城"].stacks;
+      if (c.status["四方城"].stacks >= ps2.amp.cap) critRate += ps2.amp.fullCritRate;
+    }
+    if (!useMainRes && c.resonanceMode !== "custom") {
+      const tune = (TUNING_DELTA[c.id] || {})[c.variant] || { atk: 0, critRate: 0, critDmg: 0, traumaUp: 0, spellPower: 0, ritualPower: 0 };
+      atk += tune.atk;
+      critRate += tune.critRate;
+      critDmg += tune.critDmg;
+      traumaUp += tune.traumaUp;
+      spellPower += tune.spellPower;
+      ritualPower += tune.ritualPower;
+    }
+    if (c.id === "j" && c.status["燃烧"] && c.status["燃烧"].stacks > 0) {
+      const furnaceRate = c.portray >= 5 ? 1.5 : (c.portray >= 2 ? 1 : 0.5);
+      atk += atk * c.status["燃烧"].stacks * furnaceRate / 100;
+    }
+    c.stats = {
+      atk: Math.round(atk), maxHp: Math.round(hp), hp: Math.round(hp), defR: Math.round(defR), defM: Math.round(defM),
+      critRate: round1(critRate), critDmg: round1(critDmg + critDmgExtra),
+      spellPower: round1(spellPower), ritualPower: round1(ritualPower), traumaUp: round1(traumaUp)
+    };
+  }
+  // 小瑞安侬的尘酿鹰依赖她的攻击，刷新两轮
+  const ran = byId("ran");
+  if (ran) {
+    const ranRate = ran.portray >= 4 ? 0.10 : 0.08;
+    const ranCapAtk = ran.portray >= 4 ? 310 : 250;
+    const ranCapHp = ran.portray >= 4 ? 1550 : 1250;
+    for (const c of S.team) {
+      if (c.status["尘酿鹰"]) {
+        c.stats.atk += Math.min(ranCapAtk, Math.round(ran.stats.atk * ranRate));
+        c.stats.maxHp += Math.min(ranCapHp, Math.round(ran.stats.maxHp * ranRate));
+      }
+    }
+  }
+}
+
+function round1(x) { return Math.round(x * 10) / 10; }
+function byId(id) { return S.team.find(c => c.id === id); }
+function dummy() { return S.dummy; }
+function isAdvantage(att, def) { return AFFLATUS_ADV[att] === def; }
+
+function newBattle() {
+  const prevConfigs = S && S.team ? S.team.map(c => ({
+    psychube: c.psychube,
+    resonanceMode: c.resonanceMode,
+    variant: c.variant,
+    portray: c.portray,
+    customRes: c.customRes
+  })) : null;
+  const prevDummy = S && S.dummy ? {
+    maxHp: S.dummy.maxHp,
+    defR: S.dummy.defR,
+    defM: S.dummy.defM,
+    critRes: S.dummy.critRes,
+    critDef: S.dummy.critDef,
+    traumaRes: S.dummy.traumaRes,
+    adv: S.dummy.adv,
+    afflatus: S.dummy.afflatus
+  } : null;
+  S = {
+    round: 1,
+    extraRound: false,
+    actionPoints: 4,
+    maxActionPoints: 4,
+    hand: [],
+    deck: [],
+    team: ORDER.map((id, i) => makeChar(id, prevConfigs ? prevConfigs[i] : null)),
+    dummy: {
+      hp: 2100000000, maxHp: 2100000000, defR: 1300, defM: 1300,
+      critRes: 0, critDef: 20, traumaRes: 30, adv: 30, afflatus: "智",
+      status: emptyStatus(), burnFrom: null
+    },
+    teamBuffs: {
+      dmgUp: { v: 0, d: 0 }, critDmgUp: { v: 0, d: 0 },
+      spellPower: { v: 0, d: 0 }, ritualPower: { v: 0, d: 0 },
+      traumaUp: { v: 0, d: 0 }, traumaResUp: { v: 0, d: 0 },
+      lingxi: { stacks: 0, dur: 0 }
+    },
+    finalUp: 0, finalRes: 0,
+    roundDamage: 0, totalDamage: 0, history: [],
+    log: [],
+    jCounterCount: 0
+  };
+  undoStack = [];
+  if (prevDummy) {
+    const d = S.dummy;
+    d.maxHp = prevDummy.maxHp;
+    d.hp = prevDummy.maxHp;
+    d.defR = prevDummy.defR;
+    d.defM = prevDummy.defM;
+    d.critRes = prevDummy.critRes;
+    d.critDef = prevDummy.critDef;
+    d.traumaRes = prevDummy.traumaRes;
+    d.adv = prevDummy.adv;
+    d.afflatus = prevDummy.afflatus;
+  }
+  S.deck = buildDeck();
+  shuffle(S.deck);
+  S.hand = buildStartHand();
+  S.tuning = (document.getElementById("tuningSelect") || {}).value || "unfinished";
+  S.tuningEnergy = S.tuning === "initial" ? 15 : 25;
+  S.tuningSkill1Cost = 40;
+  if (S.tuning === "unfinished" && S.hand.length > 0) {
+    const firstDealt = [...S.hand].reverse().find(x => x.skillId !== "ult" && x.skillId !== "prep") || S.hand[S.hand.length - 1];
+    S.hand.unshift(Object.assign({}, firstDealt, { uid: "start-extra-" + Math.random().toString(36).slice(2) }));
+  }
+  refreshStats();
+  turnStart();
+  render();
+}
+
+function buildDeck() {
+  const deck = [];
+  for (const id of ORDER) {
+    for (const skill of CHARACTERS[id].skills) {
+      for (let i = 0; i < 8; i++) deck.push({ charId: id, skillId: skill.id, rank: 1, uid: Math.random().toString(36).slice(2) });
+    }
+  }
+  return deck;
+}
+
+function buildStartHand() {
+  const cards = [];
+  for (const id of ORDER) {
+    for (const skill of CHARACTERS[id].skills) {
+      cards.push({ charId: id, skillId: skill.id, rank: 1, uid: "start-" + Math.random().toString(36).slice(2) });
+    }
+  }
+  shuffle(cards);
+  const ults = [];
+  for (const id of ORDER) {
+    const c = S.team.find(x => x.id === id);
+    if (c && c.passion >= 5) {
+      ults.push({ charId: id, skillId: "ult", rank: 0, uid: "ult-" + Math.random().toString(36).slice(2) });
+    }
+  }
+  const normalCount = Math.max(0, cards.length - ults.length);
+  const dealtNormal = cards.slice(0, normalCount);
+  return ults.concat(dealtNormal).reverse(); // 最先发的牌在最右侧
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+function drawCards(n) {
+  for (let i = 0; i < n; i++) {
+    if (S.hand.length >= handLimit()) break;
+    if (S.deck.length === 0) { S.deck = buildDeck(); shuffle(S.deck); }
+    S.hand.unshift(S.deck.pop());
+  }
+}
+
+function turnStart() {
+  // 预备咒语：不占手牌上限、打出不耗行动点、下回合自动消失
+  if (S.hand.some(x => x.skillId === "prep")) {
+    S.hand = S.hand.filter(x => x.skillId !== "prep");
+    log("虚构故事集 已消失（预备咒语下回合自动消失）", "buff");
+  }
+
+  // 行动点
+  let ap = 4;
+  const mld = byId("mld");
+  if (mld && mld.status["连续行动Ⅰ"] && mld.status["连续行动Ⅰ"].dur > 0) {
+    ap += 1;
+    mld.status["连续行动Ⅰ"].dur -= 1;
+    if (mld.status["连续行动Ⅰ"].dur <= 0) delete mld.status["连续行动Ⅰ"];
+  }
+  S.maxActionPoints = ap;
+  S.actionPoints = ap;
+  S.jCounterCount = 0;
+
+  if (S.tuning === "initial" && S.round > 1) addTuningEnergy(3);
+
+  // 莫莉德尔战备阈值
+  if (mld) {
+    const zb = mld.status["战备"] ? mld.status["战备"].stacks : 0;
+    if (zb >= 30) {
+      for (const t of S.team) addStatus(t.status, "武装整修", 0, 1);
+      log("莫莉德尔 武装整修：全队暴击率+" + (mld.portray >= 2 ? 40 : 30) + "%，溢出转暴击创伤");
+    }
+    if (zb >= 20) {
+      for (const t of S.team) addStatus(t.status, "战备部署", 0, 1);
+      log("莫莉德尔 战备部署：全队每层战备仪式伤害+" + (mld.portray >= 2 ? "2.5" : "2") + "%");
+    }
+    if (zb >= 10 && !mld.status["教条"]) { addStatus(mld.status, "主见", 0, 1); log("莫莉德尔 主见：免疫心神不宁"); }
+    if (mld.status["教条"]) { log("莫莉德尔 教条中：无法获得主见"); }
+  }
+
+  // 小瑞安侬：默契同调 + 灵犀
+  const ran = byId("ran");
+  if (ran) {
+    addStatus(ran.status, "默契同调", 2, 0);
+    if (ran.status["默契同调"].stacks > 4) ran.status["默契同调"].stacks = 4;
+    addLingxi(ran.portray >= 5 ? 2 : 1, 3);
+  }
+
+  // J 狂想：燃烧阈值
+  const j = byId("j");
+  if (j && j.status["燃烧"]) {
+    const n = j.status["燃烧"].stacks;
+    if (n >= 10) { addTeam("traumaResUp", n, 1); log("J 狂想：全队受创减免 +" + n + "%（1回合）"); }
+    if (n >= 30) { addTeam("counterTrauma", n, 1); log("J 狂想：全队反击创伤加成 +" + n + "%（1回合）"); }
+  }
+
+  // 大招卡优先发放：先发完全部激情满角色的大招，再补小技能
+  const pendingUlts = S.team.filter(c => c.passion >= 5 && !S.hand.some(x => x.charId === c.id && x.skillId === "ult"));
+  for (const c of pendingUlts) {
+    if (S.hand.length >= handLimit()) break;
+    S.hand.unshift({ charId: c.id, skillId: "ult", rank: 0, uid: "ult-" + Math.random().toString(36).slice(2) });
+    log(c.name + " 获得至终的仪式卡", "buff");
+  }
+  drawCards(Math.max(0, handLimit() - S.hand.length));
+
+  // 虚构集：筹备·虚构集 -> 预备咒语（不占手牌上限，补牌后生成）
+  const xg = byId("xg");
+  if (xg && xg.status["筹备·虚构集"] && xg.status["筹备·虚构集"].stacks > 0) {
+    while (xg.status["筹备·虚构集"].stacks > 0) {
+      xg.status["筹备·虚构集"].stacks -= 1;
+      S.hand.unshift({ charId: "xg", skillId: "prep", rank: 0, uid: "prep-" + Math.random().toString(36).slice(2) });
+      log("虚构集 生成预备咒语：虚构故事集");
+    }
+  }
+
+  autoMergeHand();
+}
+
+function addTeam(key, v, d) {
+  if (!S.teamBuffs[key]) S.teamBuffs[key] = { v: 0, d: 0 };
+  if (v !== undefined) S.teamBuffs[key].v = v;
+  S.teamBuffs[key].d = Math.max(S.teamBuffs[key].d, d || 0);
+}
+
+function addLingxi(n, dur) {
+  const t = S.teamBuffs.lingxi;
+  const ran = byId("ran");
+  const cap = ran && ran.portray >= 5 ? 10 : (ran && ran.portray >= 2 ? 7 : 5);
+  t.stacks = Math.min(cap, t.stacks + n);
+  t.dur = Math.max(t.dur, dur || 0);
+}
+
+function calcHit(c, opts) {
+  const st = c.stats;
+  const dmy = dummy();
+  const traumaType = opts.traumaType || c.def.trauma;
+  const def = traumaType === "现实" ? dmy.defR : dmy.defM;
+  const atkUp = c.buffs.atkUp.d > 0 ? c.buffs.atkUp.v / 100 : 0;
+  const pen = 0;
+  let atkDef = st.atk * (1 + atkUp) - def * (1 - pen);
+  if (atkDef < st.atk * 0.1) atkDef = st.atk * 0.1;
+  let traumaUp = st.traumaUp;
+  if (opts.isUlt && c.status["战备部署"]) {
+    const mld = byId("mld");
+    const zb = mld && mld.status["战备"] ? mld.status["战备"].stacks : 0;
+    traumaUp += zb * (mld && mld.portray >= 2 ? 2.5 : 2);
+  }
+  if (opts.isCounter && S.teamBuffs.counterTrauma && S.teamBuffs.counterTrauma.d > 0) {
+    traumaUp += S.teamBuffs.counterTrauma.v;
+  }
+  let trauma = 1 + traumaUp / 100 - dmy.traumaRes / 100;
+  if (trauma < 0.3) trauma = 0.3;
+  const critRate = st.critRate - dmy.critRes;
+  const crit = Math.random() * 100 < critRate;
+  const dummyCritDef = dmy.critDef + (dmy.status["暴击防御降低"] ? dmy.status["暴击防御降低"].v || 0 : 0);
+  let critDmg = st.critDmg - dummyCritDef;
+  const critTerm = crit ? Math.max(1, critDmg / 100) : 1;
+  let power = 1;
+  if (opts.isUlt) power += st.ritualPower / 100;
+  else power += st.spellPower / 100;
+  if (power < 1) power = 1;
+  const advantaged = !!(opts.anyAdvantage || isAdvantage(c.def.afflatus, dmy.afflatus));
+  const lingxi = S.teamBuffs.lingxi.stacks || 0;
+  const lingxiRate = byId("ran") && byId("ran").portray >= 2 ? 5 : 4;
+  const lingxiMult = lingxi * lingxiRate / 100;
+  const advMult = 1 + (dmy.adv || 30) / 100 + lingxiMult;
+  let affinity = 1;
+  if (advantaged) affinity += (dmy.adv || 30) / 100;
+  affinity += lingxiMult;
+  const finalTerm = 1 + S.finalUp / 100 - S.finalRes / 100;
+  const mult = opts.mult + (opts.mainExtra || 0) + (opts.extraMult || 0) + (opts.overflowMult || 0);
+  let dmg = (mult / 100) * atkDef * trauma * critTerm * power * affinity * finalTerm;
+  dmg = Math.floor(dmg);
+  return { dmg, crit, critRate: Math.max(0, Math.min(100, critRate)), critDmg: st.critDmg, affinity, power, trauma, atkDef, advantaged, advMult, lingxi };
+}
+
+function dealDamage(c, dmg, label, opts) {
+  c.dmgRound += dmg; c.dmgTotal += dmg;
+  S.roundDamage += dmg; S.totalDamage += dmg;
+  dummy().hp = Math.max(0, dummy().hp - dmg);
+  const lingxiText = opts && opts.lingxi ? "，灵犀" + opts.lingxi + "层" : "";
+  const advText = opts && opts.advantaged !== undefined
+    ? (opts.advantaged ? "（克制，系数×" + round1(opts.affinity || 1) + lingxiText + "）" : "（无克制，系数×" + round1(opts.affinity || 1) + lingxiText + "）")
+    : "";
+  log("【" + c.name + "】" + label + "：" + dmg + (opts && opts.crit ? "（暴击）" : "") + advText + psychubeHitSummary(c, opts));
+}
+
+function psychubeHitSummary(c, opts) {
+  const ps = PSYCHUBES[c.psychube];
+  if (!ps) return "";
+  const parts = [];
+  if (opts && (opts.isUlt || opts.psRit !== undefined) && c.psychube === "lastRoll" && c.id === "xg") {
+    if (opts.psRit) parts.push("仪式威力+" + round1(opts.psRit) + "%");
+    if (opts.psCrit) parts.push("暴击创伤+" + round1(opts.psCrit) + "%");
+  }
+  if (c.psychube === "outside" && c.status["四方城"] && c.status["四方城"].stacks > 0) {
+    const stacks = c.status["四方城"].stacks;
+    parts.push("暴击创伤+" + round1(ps.amp.extraCritDmg * stacks) + "%（四方城" + stacks + "层）");
+    if (stacks >= ps.amp.cap) parts.push("暴击率+" + ps.amp.fullCritRate + "%");
+  }
+  if (c.psychube === "rain") {
+    if (S.teamBuffs.dmgUp.d > 0) parts.push("全队创伤加成+" + round1(S.teamBuffs.dmgUp.v) + "%");
+    if (S.teamBuffs.critDmgUp.d > 0) parts.push("全队暴击创伤+" + round1(S.teamBuffs.critDmgUp.v) + "%");
+  }
+  if (c.psychube === "family" && S.teamBuffs.critDmgUp.d > 0) {
+    parts.push("全队暴击创伤+" + round1(S.teamBuffs.critDmgUp.v) + "%（激情）");
+  }
+  if (!parts.length) return "";
+  return "｜心相[" + ps.name + "]：" + parts.join("，");
+}
+
+function applyDummyStatus(id, stacks, dur) {
+  const d = dummy();
+  if (!d.status[id]) d.status[id] = { stacks: 0, dur: 0 };
+  d.status[id].stacks += stacks;
+  d.status[id].dur = Math.max(d.status[id].dur, dur || 0);
+}
+
+function applyExtract(c) {
+  const st = dummy().status["激情萃取"];
+  if (st && st.stacks > 0) {
+    st.stacks -= 1;
+    c.passion = Math.min(c.maxPassion, c.passion + 1);
+    log("激情萃取：攻击者 " + c.name + " 激情+1", "buff");
+  }
+}
+
+function log(msg, cls) {
+  S.log.unshift({ msg, cls: cls || "" });
+  if (S.log.length > 300) S.log.length = 300;
+}
+
+function playCard(uid) {
+  const idx = S.hand.findIndex(x => x.uid === uid);
+  if (idx < 0) return;
+  const card = S.hand[idx];
+  const c = byId(card.charId);
+  if (!c) return;
+  if (card.skillId === "universal") { log("万能卡不能直接打出", "buff"); return; }
+  const isPrep = card.skillId === "prep";
+  const isUlt = card.skillId === "ult";
+  const skill = (isPrep || isUlt) ? null : c.def.skills.find(s => s.id === card.skillId);
+  const apCost = isPrep ? 0 : ((c.id === "ran" && c.status["加护"]) ? 0 : 1);
+  if (S.actionPoints < apCost) { log("行动点不足", "buff"); return; }
+  pushUndo();
+  S.actionPoints -= apCost;
+  S.hand.splice(idx, 1);
+  selectedCard = null;
+  moveSource = null;
+  c.passion = Math.min(c.maxPassion, c.passion + (isUlt ? 0 : 1));
+  if (!isUlt) addTuningEnergy(4);
+  if (isPrep) castStoryBook();
+  else if (isUlt) castUltCard(c);
+  else if (skill.type === "attack") castAttack(c, card, skill);
+  else if (skill.type === "counter") castCounterSkill(c, card, skill);
+  else castBuffSkill(c, card, skill);
+  autoMergeHand();
+  refreshStats();
+  render();
+}
+
+function castAttack(c, card, skill) {
+  const rank = card.rank;
+  if (c.id === "xg") {
+    if (skill.id === "s1") {
+      const r = calcHit(c, { mult: skill.mult[rank - 1] });
+      dealDamage(c, r.dmg, "字的隐喻 " + rankName(rank) + "阶", r);
+      applyExtract(c);
+      applyDummyStatus("激情萃取", 2, 0);
+    } else {
+      const mult = c.portray >= 4 ? [150, 225, 375][rank - 1] : skill.mult[rank - 1];
+      const layers = c.portray >= 4 ? 10 : 5;
+      const r = calcHit(c, { mult });
+      dealDamage(c, r.dmg, "词的意象 " + rankName(rank) + "阶", r);
+      applyExtract(c);
+      addStatus(c.status, "独白", layers, 0);
+      capStacks(c, "独白", 40);
+      log("虚构集 获得" + layers + "层独白（上限40）", "buff");
+    }
+  } else if (c.id === "mld") {
+    const mult = c.portray >= 1 ? [150, 225, 375][rank - 1] : skill.mult[rank - 1];
+    const r = calcHit(c, { mult });
+    dealDamage(c, r.dmg, "将过往摧毁 " + rankName(rank) + "阶", r);
+    applyExtract(c);
+    applyDummyStatus("激情萃取", 1, 0);
+    addStatus(c.status, "连续行动Ⅰ", 0, c.portray >= 1 ? 2 : 1);
+    log("莫莉德尔 获得连续行动Ⅰ：下回合行动点+1（持续" + (c.portray >= 1 ? 2 : 1) + "回合）", "buff");
+  } else if (c.id === "ran") {
+    castRanSkill(c, card, skill, rank);
+  } else if (c.id === "j") {
+    let mult = skill.mult[rank - 1];
+    const reverie = !!c.def.reverie;
+    let burn = 2;
+    if (reverie) { mult += mult; burn = 6; }
+    const r = calcHit(c, { mult });
+    dealDamage(c, r.dmg, "硬度测试 " + rankName(rank) + "阶", r);
+    applyExtract(c);
+    applyDummyStatus("燃烧", burn, 0);
+    addStatus(c.status, "燃烧", burn, 0);
+    capStacks(c, "燃烧", c.portray >= 3 ? 45 : 35);
+    log("J 施加" + burn + "层燃烧（目标/自身），视为反击", "buff");
+    if (reverie && c.psychube === "outside") {
+      addStatus(c.status, "四方城", 1, 0);
+      log("在四方城外：暴击创伤 +" + PSYCHUBES.outside.amp.extraCritDmg + "%（" + c.status["四方城"].stacks + "/10）", "buff");
+    }
+  }
+}
+
+function castCounterSkill(c, card, skill) {
+  if (c.id === "mld") {
+    const n = [2, 3, 5][card.rank - 1];
+    addPrepStacks(c, n, 3);
+    if (c.status["主见"]) { addStatus(c.status, "攻坚", 0, 1); log("莫莉德尔 获得攻坚：受击后大招反击", "buff"); }
+    else { addStatus(c.status, "闪击", 0, 1); log("莫莉德尔 获得闪击：受击后反制将过往摧毁", "buff"); }
+    log("莫莉德尔 战备 +" + n, "buff");
+  } else if (c.id === "j") {
+    const n = [1.0, 1.5, 2.5][card.rank - 1];
+    for (const t of S.team) addStatus(t.status, "热处理护盾", 0, 2);
+    log("J 热处理：全队获得护盾（攻击×" + Math.round(n * 100) + "% + 燃烧加成），受击后高温回火反击", "buff");
+  }
+}
+
+function castBuffSkill(c, card, skill) {
+  if (c.id === "ran" && skill.id === "s2") {
+    consumeTuning(c);
+    const birdPower = c.portray >= 1 ? 45 : 30;
+    addTeam("spellPower", birdPower, 3);
+    addTeam("ritualPower", birdPower, 3);
+    log("小瑞安侬 全队获得群鸟之歌：术法/仪式威力+" + birdPower + "%（3回合）", "buff");
+    const hpUp = [12, 13, 14][card.rank - 1];
+    c.buffs.maxHpUp = { v: hpUp, d: 3 };
+    if (c.status["加护"]) {
+      const lingxiStacks = S.teamBuffs.lingxi.stacks || 0;
+      const baseUp = c.portray >= 3 ? 20 : 15;
+      const maxExtra = c.portray >= 3 ? 21 : 15;
+      const extra = Math.min(maxExtra, lingxiStacks * 3);
+      addTeam("traumaUp", baseUp + extra, 3);
+      log("小瑞安侬·加护：全队创伤加成 +" + (baseUp + extra) + "%（3回合）", "buff");
+    }
+    afterRanSpell();
+  }
+}
+
+function castRanSkill(c, card, skill, rank) {
+  consumeTuning(c);
+  const amp = c.status["加护"];
+  const mult = amp ? skill.multAmp[rank - 1] : skill.mult[rank - 1];
+  const r = calcHit(c, { mult });
+  dealDamage(c, r.dmg, (amp ? "囫囵囵咒·加护 " : "囫囵囵咒 ") + rankName(rank) + "阶", r);
+  applyExtract(c);
+  c.buffs.atkUp = { v: [12, 13, 14][rank - 1], d: 3 };
+  if (amp) {
+    const lingxiStacks = S.teamBuffs.lingxi.stacks || 0;
+    const baseDebuff = c.portray >= 3 ? 20 : 15;
+    const maxExtra = c.portray >= 3 ? 21 : 15;
+    const extra = Math.min(maxExtra, lingxiStacks * 3);
+    applyDummyStatus("暴击防御降低", 0, 3);
+    dummy().status["暴击防御降低"].v = Math.max(dummy().status["暴击防御降低"].v || 0, baseDebuff + extra);
+    log("小瑞安侬·加护：木桩暴击防御降低 " + (baseDebuff + extra) + "%（3回合）", "buff");
+  }
+  afterRanSpell();
+}
+
+function consumeTuning(c) {
+  if (!c.status["默契同调"] || c.status["默契同调"].stacks <= 0) return;
+  c.status["默契同调"].stacks -= 1;
+  const energyGain = c.portray >= 5 ? 12.5 : (c.portray >= 2 ? 10 : 8);
+  const lingxiGain = c.portray >= 5 ? 4 : (c.portray >= 2 ? 3 : 2);
+  c.energy = Math.min(150, c.energy + energyGain);
+  addLingxi(lingxiGain, 3);
+  log("小瑞安侬 默契同调：使役通感 +" + energyGain + "%，灵犀 +" + lingxiGain, "buff");
+}
+
+function afterRanSpell() {
+  if (byId("ran").psychube === "rain") {
+    const v = PSYCHUBES.rain.amp.spellTeamDmg;
+    const cur = S.teamBuffs.dmgUp;
+    cur.v = Math.min(6, (cur.d > 0 ? cur.v / v : 0) + 1) * v;
+    cur.d = 3;
+    log("昨日雨声轻：全队创伤加成 +" + cur.v + "%（3回合）", "buff");
+  }
+}
+
+function rankName(r) { return ["", "一", "二", "三"][r] || ""; }
+function capStacks(c, id, cap) {
+  if (c.status[id] && c.status[id].stacks > cap) c.status[id].stacks = cap;
+}
+
+function castUltCard(c) {
+  if (!c || c.passion < 5) return;
+  const cost = c.id === "xg" ? c.passion : 5;
+  c.passion -= cost;
+  onPassionSpent(c, cost);
+
+  if (c.id === "xg") castXgUlt(c, cost);
+  else if (c.id === "mld") castMldUlt(c);
+  else if (c.id === "j") castJUlt(c);
+  else if (c.id === "ran") castRanUlt(c);
+
+  // 其他友方释放仪式 -> 虚构集被动
+  if (c.id !== "xg") {
+    const xg = byId("xg");
+    xg.passion = Math.min(xg.maxPassion, xg.passion + 1);
+    if ((c.def.ult.target || "aoe") === "single") {
+      addStatus(xg.status, "独白", cost, 0);
+      capStacks(xg, "独白", 40);
+      log("虚构集 自动写作法：激情+1，获得" + cost + "层独白", "buff");
+    } else {
+      addStatus(xg.status, "群像", cost, 0);
+      capStacks(xg, "群像", 40);
+      log("虚构集 自动写作法：激情+1，获得" + cost + "层群像", "buff");
+    }
+  }
+  refreshStats();
+  render();
+}
+
+function onPassionSpent(c, amount) {
+  const mld = byId("mld");
+  if (mld) {
+    addPrepStacks(mld, amount, 3);
+    log("莫莉德尔 战备 +" + amount, "buff");
+  }
+  const mldPs = byId("mld") && byId("mld").psychube === "family" ? PSYCHUBES.family : null;
+  if (mldPs) {
+    const t = S.teamBuffs.critDmgUp;
+    const v = mldPs.amp.passionCrit;
+    t.v = Math.min(mldPs.amp.cap, (t.d > 0 ? t.v / v : 0) + amount) * v;
+    t.d = Math.max(t.d, 1);
+    log("家庭指导员：全队暴击创伤 +" + t.v + "%", "buff");
+  }
+}
+
+function castXgUlt(c, cost) {
+  const d = c.status["独白"] ? c.status["独白"].stacks : 0;
+  const g = c.status["群像"] ? c.status["群像"].stacks : 0;
+  const baseMult = c.portray >= 5 ? 650 : (c.portray >= 3 ? 550 : c.def.ult.mult);
+  const baseExtra = c.portray >= 5 ? 650 : (c.portray >= 3 ? 550 : c.def.ult.mainExtra);
+  let mult = baseMult + (c.def.reverie ? c.def.ult.mult : 0);
+  let mainExtra = baseExtra + (c.def.reverie ? c.def.ult.mainExtra : 0);
+  const perD = c.def.reverie ? 100 : (c.portray >= 2 ? 70 : 50);
+  const perG = c.def.reverie ? 50 : (c.portray >= 2 ? 35 : 25);
+  const stackMain = d * perD + g * perG;
+  const stackAoe = g * perG;
+  const extra = Math.max(0, cost - 5);
+  const ritualBase = c.portray >= 5 ? 6 : 3;
+  const ps = PSYCHUBES[c.psychube];
+  const lastRollBonus = ps.id === "lastRoll" ? ps.amp.ritPerPassion * cost : 0;
+  const xgBonus = extra * ritualBase;
+  const totalRitBonus = lastRollBonus + xgBonus;
+  const doubleRit = extra >= 5; // 10激情时威力翻倍
+  const appliedRitBonus = doubleRit ? totalRitBonus * 2 : totalRitBonus;
+  const psRit = lastRollBonus;
+  if (c.def.reverie) { /* 狂想Ⅱ：每额外激情=基础100%，不额外改动 */ }
+  const oldRitual = c.stats.ritualPower;
+  c.stats.ritualPower += appliedRitBonus;
+  let critBuff = 0;
+  if (ps.id === "lastRoll") {
+    critBuff = Math.min(ps.amp.cap, cost) * ps.amp.critPerPassion;
+    c.stats.critDmg += critBuff;
+  }
+  const r = calcHit(c, { mult, mainExtra: mainExtra + stackMain, extraMult: stackAoe, isUlt: true });
+  dealDamage(c, r.dmg, "下现实主义迷宫", Object.assign({}, r, { isUlt: true, psRit, psCrit: critBuff }));
+  applyExtract(c);
+  c.stats.ritualPower = oldRitual;
+  c.stats.critDmg -= critBuff;
+  const consumed = d + g;
+  c.status["独白"] = { stacks: 0, dur: 0 };
+  c.status["群像"] = { stacks: 0, dur: 0 };
+  const prepGain = Math.floor(consumed / 10);
+  if (prepGain > 0) {
+    const maxPrep = c.portray >= 1 ? 2 : 1;
+    addStatus(c.status, "筹备·虚构集", Math.min(maxPrep, prepGain), 0);
+    capStacks(c, "筹备·虚构集", maxPrep);
+    log("虚构集 筹备·虚构集 +" + prepGain + "（上限" + maxPrep + "）", "buff");
+  }
+  distributeUltPassion(extra);
+  log("虚构集 大招：独白" + d + " 群像" + g + "，额外激情" + extra + "，仪式威力+" + round1(appliedRitBonus) + "%（心相" + round1(lastRollBonus) + "% + 自身" + round1(xgBonus) + "%" + (doubleRit ? "，10激情翻倍" : "") + "）", "buff");
+}
+
+function distributeUltPassion(extra) {
+  const allies = S.team.filter(x => x.id !== "xg");
+  for (let k = 0; k < extra; k++) {
+    let target = null;
+    for (const a of allies) {
+      if (a.passion >= a.maxPassion) continue;
+      if (!target || a.passion < target.passion) target = a;
+    }
+    if (!target) break;
+    target.passion += 1;
+    log("虚构集 大招返还： " + target.name + " 激情+1", "buff");
+  }
+}
+
+function castMldUlt(c, viaStory) {
+  const multBase = c.portray >= 4 ? 500 : c.def.ult.mult;
+  const activeExtra = c.portray >= 5 ? 600 : c.def.ult.activeExtra;
+  let mult = multBase + (viaStory ? 0 : activeExtra);
+  const r = calcHit(c, { mult, isUlt: true });
+  dealDamage(c, r.dmg, "不再迷失的归途者（主动）", r);
+  applyExtract(c);
+  const ritualLayers = c.portray >= 4 ? 8 : 6;
+  addStatus(c.status, "礼仪：暴击创伤", ritualLayers, 0);
+  capStacks(c, "礼仪：暴击创伤", 100);
+  addStatus(c.status, "教条", 0, 2);
+  log("莫莉德尔 大招：全队礼仪：暴击创伤+" + ritualLayers + "层，自身教条2回合", "buff");
+}
+
+function castJUlt(c) {
+  const burn = c.status["燃烧"] ? c.status["燃烧"].stacks : 0;
+  const old = dummy().status["燃烧"] ? dummy().status["燃烧"].stacks : 0;
+  const overflow = Math.max(0, old + burn - 30);
+  applyDummyStatus("燃烧", burn, 0);
+  if (dummy().status["燃烧"].stacks > 30) dummy().status["燃烧"].stacks = 30;
+  let mult = c.def.ult.mult;
+  if (c.portray >= 4) mult = 450;
+  let overMult = 0;
+  if (c.def.reverie) {
+    mult += mult;
+    overMult = overflow * 50;
+    const t = S.teamBuffs.traumaUp;
+    t.v = Math.min(99, burn * 2.5);
+    t.d = 3;
+    log("J 狂想：全队创伤加成 +" + t.v + "%（3回合）", "buff");
+  } else {
+    overMult = overflow * (c.portray >= 4 ? 15 : 10);
+  }
+  const r = calcHit(c, { mult, overflowMult: overMult, isUlt: true });
+  dealDamage(c, r.dmg, "飞跃海特街！" + (overflow ? "（溢出" + overflow + "层）" : ""), r);
+  applyExtract(c);
+  log("J 大招：赋予木桩" + burn + "层燃烧，溢出" + overflow + "层", "buff");
+}
+
+function castRanUlt(c) {
+  for (const ally of S.team) {
+    if (ally.id === "ran") continue;
+    addStatus(ally.status, "尘酿鹰", 0, 3);
+  }
+  addStatus(c.status, "加护", 0, 4);
+  log("小瑞安侬 大招：其他友方获得尘酿鹰，自身加护4回合（主动咒语不耗行动点并升华）", "buff");
+  if (c.psychube === "rain") {
+    const t = S.teamBuffs.critDmgUp;
+    const v = PSYCHUBES.rain.amp.ultTeamCrit;
+    t.v = Math.max(t.v, v);
+    t.d = 3;
+    log("昨日雨声轻：全队暴击创伤 +" + v + "%（3回合）", "buff");
+  }
+}
+
+function castStoryBook() {
+  const xg = byId("xg");
+  let target = S.team.filter(x => x.id !== "xg").sort((a, b) => b.passion - a.passion)[0];
+  if (!target) return;
+  const cost = target.passion;
+  target.passion = 0;
+  onPassionSpent(target, cost);
+  if (target.id === "mld") castMldUlt(target, true);
+  else if (target.id === "j") castJUlt(target);
+  else if (target.id === "ran") castRanUltFromStory(target);
+  target.passion = Math.min(target.maxPassion, cost); // 回复消耗的激情（上限为释放所需）
+  xg.passion = Math.min(xg.maxPassion, xg.passion + 1);
+  const reverieMult = xg.def.reverie ? 2 : 1;
+  const gain = cost * reverieMult;
+  if ((target.def.ult.target || "aoe") === "single") {
+    addStatus(xg.status, "独白", gain, 0);
+    capStacks(xg, "独白", 40);
+    log("虚构故事集：" + target.name + " 消耗" + cost + "点激情释放单体仪式，随后回复；虚构集获得" + gain + "层独白" + (reverieMult > 1 ? "（狂想翻倍）" : ""), "buff");
+  } else {
+    addStatus(xg.status, "群像", gain, 0);
+    capStacks(xg, "群像", 40);
+    log("虚构故事集：" + target.name + " 消耗" + cost + "点激情释放群体仪式，随后回复；虚构集获得" + gain + "层群像" + (reverieMult > 1 ? "（狂想翻倍）" : ""), "buff");
+  }
+}
+
+function castRanUltFromStory(c) {
+  // 通过虚构故事集释放的仪式同样结算增益，但不额外占用行动点
+  const ranAtk = c.stats.atk;
+  for (const ally of S.team) {
+    if (ally.id === "ran") continue;
+    addStatus(ally.status, "尘酿鹰", 0, 3);
+  }
+  addStatus(c.status, "加护", 0, 4);
+  log("小瑞安侬 通过虚构故事集释放：尘酿鹰+加护", "buff");
+  if (c.psychube === "rain") {
+    const t = S.teamBuffs.critDmgUp;
+    const v = PSYCHUBES.rain.amp.ultTeamCrit;
+    t.v = Math.max(t.v, v);
+    t.d = 3;
+    log("昨日雨声轻：全队暴击创伤 +" + v + "%（3回合）", "buff");
+  }
+}
+
+function releaseRhiannon() {
+  const ran = byId("ran");
+  if (!ran || ran.energy < 100 || S.extraRound) return;
+  pushUndo();
+  ran.energy -= 100;
+  S.extraRound = true;
+  S.deck.push(...S.hand.filter(x => x.skillId === "s1" || x.skillId === "s2"));
+  S.hand = [];
+  S.maxActionPoints = 4;
+  S.actionPoints = 4;
+  drawCards(handLimit());
+  autoMergeHand();
+  log("小瑞安侬 释放使役通感：进入超凡五感（额外行动回合，回合数不变）", "buff");
+  render();
+}
+
+function endTurn() {
+  undoStack = [];
+  S.hand = S.hand.filter(x => !x.tuningTemp);
+
+  // 回合结束结算
+  const dmy = dummy();
+  const j = byId("j");
+  if (dmy.status["燃烧"] && j) {
+    const n = dmy.status["燃烧"].stacks;
+    const burnDmg = Math.floor(n * j.stats.atk * 0.04);
+    if (burnDmg > 0) {
+      dealDamage(j, burnDmg, "燃烧结算（木桩" + n + "层）");
+      dmy.status["燃烧"].stacks = Math.floor(n / 2);
+    }
+  }
+  const ran = byId("ran");
+  if (ran && ran.status["默契同调"] && ran.status["默契同调"].stacks > 0) {
+    ran.status["默契同调"].stacks -= 1;
+    ran.passion = Math.min(ran.maxPassion, ran.passion + 1);
+    log("小瑞安侬 回合结束：默契同调换激情+1", "buff");
+  }
+  if (!S.extraRound) dummyAttack();
+  tickStatuses();
+
+  if (S.extraRound) {
+    // 超凡五感收尾：追加虫虫黑莓唤回术
+    const ran2 = byId("ran");
+    const lingxi = S.teamBuffs.lingxi.stacks || 0;
+    const blackberryBase = ran2.portray >= 5 ? 5000 : (ran2.portray >= 2 ? 3000 : 1500);
+    const blackberryPerLingxi = ran2.portray >= 5 ? 500 : (ran2.portray >= 2 ? 300 : 150);
+    const r = calcHit(ran2, { mult: blackberryBase + lingxi * blackberryPerLingxi, anyAdvantage: true, isUlt: false });
+    dealDamage(ran2, r.dmg, "虫虫黑莓唤回术（灵犀" + lingxi + "层）", r);
+    applyExtract(ran2);
+    S.extraRound = false;
+    turnStart();
+    log("超凡五感额外回合结束，正常开始新回合（回合数不变）", "buff");
+  } else {
+    S.history.push(S.roundDamage);
+    S.round += 1;
+    for (const c of S.team) c.dmgRound = 0;
+    S.roundDamage = 0;
+    turnStart();
+  }
+  refreshStats();
+  render();
+}
+
+function dummyAttack() {
+  log("木桩 攻击：对我方全体造成一次伤害（仅触发反击，不结算伤害）", "buff");
+  const mld = byId("mld");
+  if (mld && (mld.status["闪击"] || mld.status["攻坚"])) {
+    if (mld.status["攻坚"]) {
+      castMldUlt(mld, true);
+      log("莫莉德尔 攻坚反击：释放不再迷失的归途者", "buff");
+    } else {
+      const s1 = mld.def.skills.find(s => s.id === "s1");
+      castAttack(mld, { rank: 1 }, s1);
+      log("莫莉德尔 闪击反击：反制将过往摧毁", "buff");
+    }
+    const gain = mld.portray >= 3 ? 2 : 1;
+    mld.passion = Math.min(mld.maxPassion, mld.passion + gain);
+    log("莫莉德尔 反击后激情+" + gain, "buff");
+  }
+  const j = byId("j");
+  if (j) {
+    const shielded = S.team.filter(t => t.status["热处理护盾"]);
+    for (let k = 0; k < shielded.length; k++) castJCounter(j);
+  }
+}
+
+function castJCounter(c) {
+  const reverie = !!c.def.reverie;
+  const base = c.portray >= 1 ? 40 : 30;
+  const hpLossExtra = c.portray >= 1 ? 15 : 10;
+  let mult = base;
+  if (reverie) {
+    const burn = c.status["燃烧"] ? c.status["燃烧"].stacks : 0;
+    mult += 900 + burn * (hpLossExtra * 0.5);
+  }
+  log("J 高温回火反击（护盾队友受击）", "buff");
+  const r = calcHit(c, { mult, isCounter: true });
+  dealDamage(c, r.dmg, "高温回火", r);
+  applyDummyStatus("燃烧", 2, 0);
+  addStatus(c.status, "燃烧", 2, 0);
+  capStacks(c, "燃烧", c.portray >= 3 ? 45 : 35);
+  if (reverie && S.jCounterCount < 2) {
+    S.jCounterCount += 1;
+    c.passion = Math.min(c.maxPassion, c.passion + 1);
+    log("J 狂想：反击后激情+1（" + S.jCounterCount + "/2）", "buff");
+  }
+}
+
+function tickStatuses() {
+  for (const c of S.team) {
+    for (const k of Object.keys(c.status)) {
+      const st = c.status[k];
+      if (k === "连续行动Ⅰ") continue;
+      if (k === "战备" && st.batches) {
+        st.batches = st.batches.filter(b => {
+          b.dur -= 1;
+          return b.dur > 0;
+        });
+        st.stacks = st.batches.reduce((sum, b) => sum + b.stacks, 0);
+        if (st.stacks <= 0) delete c.status[k];
+        continue;
+      }
+      if (st.dur > 0) {
+        st.dur -= 1;
+        if (st.dur <= 0 && !["独白", "群像", "筹备·虚构集", "默契同调", "燃烧", "礼仪：暴击创伤", "四方城"].includes(k)) delete c.status[k];
+      }
+    }
+    for (const b of Object.keys(c.buffs)) {
+      if (c.buffs[b].d > 0) { c.buffs[b].d -= 1; if (c.buffs[b].d <= 0) c.buffs[b].v = 0; }
+    }
+  }
+  for (const k of Object.keys(S.teamBuffs)) {
+    const st = S.teamBuffs[k];
+    if (st && st.d > 0) {
+      st.d -= 1;
+      if (st.d <= 0) { st.v = 0; if (k === "lingxi") st.stacks = 0; }
+    }
+  }
+  const dmy = dummy();
+  for (const k of Object.keys(dmy.status)) {
+    const st = dmy.status[k];
+    if (st.dur > 0) { st.dur -= 1; if (st.dur <= 0) delete dmy.status[k]; }
+  }
+}
+
+function mergeCards(uidA, uidB) {
+  const ia = S.hand.findIndex(x => x.uid === uidA);
+  const ib = S.hand.findIndex(x => x.uid === uidB);
+  if (ia < 0 || ib < 0 || Math.abs(ia - ib) !== 1) { log("合成需要两张相邻的卡牌", "buff"); return; }
+  const a = S.hand[ia];
+  const b = S.hand[ib];
+  const uni = a.skillId === "universal" ? a : (b.skillId === "universal" ? b : null);
+  if (uni) {
+    const other = uni === a ? b : a;
+    if (!other || other.skillId === "ult" || other.skillId === "prep" || other.skillId === "universal" || other.rank !== 1) return;
+    const oc = byId(other.charId);
+    other.rank += 1;
+    delete other.tuningTemp;
+    S.hand = S.hand.filter(x => x.uid !== uni.uid);
+    selectedCard = null;
+    moveSource = null;
+    log((oc ? oc.name : "") + " 万能卡合成：" + (oc ? oc.def.skills.find(s => s.id === other.skillId).name : "") + " 升至" + rankName(other.rank) + "阶", "buff");
+    render();
+    return;
+  }
+  if (a.charId !== b.charId || a.skillId !== b.skillId || a.rank !== b.rank || a.rank >= 3) return;
+  const c = byId(a.charId);
+  c.passion = Math.min(c.maxPassion, c.passion + 1);
+  a.rank += 1;
+  delete a.tuningTemp;
+  addTuningEnergy(S.tuning === "initial" ? 2 : 5);
+  S.hand = S.hand.filter(x => x.uid !== uidB);
+  selectedCard = null;
+  moveSource = null;
+  log(c.name + " 合成：" + c.def.skills.find(s => s.id === a.skillId).name + " 升至" + rankName(a.rank) + "阶，激情+1", "buff");
+  render();
+}
+
+function autoMergeHand() {
+  for (let i = 0; i < S.hand.length - 1; i++) {
+    const a = S.hand[i];
+    const b = S.hand[i + 1];
+    if (a && b && a.skillId !== "ult" && a.skillId !== "prep" && a.rank < 3 &&
+        a.charId === b.charId && a.skillId === b.skillId && a.rank === b.rank) {
+      const before = S.hand.length;
+      mergeCards(a.uid, b.uid);
+      if (S.hand.length < before) autoMergeHand();
+      return;
+    }
+  }
+}
+
+function canMergeWith(uid) {
+  const i = S.hand.findIndex(x => x.uid === uid);
+  const card = S.hand[i];
+  if (!card || card.rank >= 3 || card.skillId === "ult" || card.skillId === "prep") return null;
+  for (const j of [i - 1, i + 1]) {
+    const other = S.hand[j];
+    if (!other) continue;
+    if (card.skillId === "universal") {
+      if (other.skillId !== "ult" && other.skillId !== "prep" && other.skillId !== "universal" && other.rank === 1) return other;
+    } else if (other.skillId === "universal") {
+      if (card.skillId !== "ult" && card.skillId !== "prep" && card.rank === 1) return other;
+    } else if (other.charId === card.charId && other.skillId === card.skillId && other.rank === card.rank) {
+      return other;
+    }
+  }
+  return null;
+}
+
+function clearLog() {
+  S.log = [];
+  render();
+}
+
+function cloneStateForUndo() {
+  const snap = JSON.parse(JSON.stringify(S));
+  snap.team = snap.team.map(c => {
+    c.def = CHARACTERS[c.id];
+    c.stats = null;
+    return c;
+  });
+  return snap;
+}
+
+function pushUndo() {
+  undoStack.push(cloneStateForUndo());
+  if (undoStack.length > 30) undoStack.shift();
+}
+
+function clearUndoHistory() {
+  undoStack = [];
+  const btn = document.getElementById("undoBtn");
+  if (btn) btn.disabled = true;
+}
+
+function undoLast() {
+  if (undoStack.length === 0) return;
+  const snap = undoStack.pop();
+  S = snap;
+  selectedCard = null;
+  moveSource = null;
+  log("已撤回上一步操作", "buff");
+  refreshStats();
+  render();
+}
+
+function resetBattle() { selectedCard = null; moveSource = null; newBattle(); }
+function applyDummyConfig() {
+  clearUndoHistory();
+  const d = dummy();
+  d.defR = +document.getElementById("cfgDefR").value || 0;
+  d.defM = +document.getElementById("cfgDefM").value || 0;
+  d.critRes = +document.getElementById("cfgCritRes").value || 0;
+  d.critDef = +document.getElementById("cfgCritDef").value || 0;
+  d.traumaRes = +document.getElementById("cfgTraumaRes").value || 0;
+  d.adv = +document.getElementById("cfgAdv").value || 0;
+  d.afflatus = document.getElementById("cfgAfflatus").value;
+  log("木桩配置已更新", "buff");
+  render();
+}
+
+function render() {
+  refreshStats();
+  document.getElementById("round").textContent = S.round + (S.extraRound ? "（超凡五感）" : "");
+  document.getElementById("ap").textContent = S.actionPoints + "/" + S.maxActionPoints;
+  document.getElementById("total").textContent = S.totalDamage.toLocaleString();
+  document.getElementById("roundDmg").textContent = S.roundDamage.toLocaleString();
+  const avg = S.round > 0 ? Math.round(S.totalDamage / S.round) : 0;
+  document.getElementById("avgDpr").textContent = avg.toLocaleString();
+  document.getElementById("sumTeam").textContent = S.roundDamage.toLocaleString();
+  document.getElementById("sumTotal").textContent = S.totalDamage.toLocaleString();
+  document.getElementById("sumDpr").textContent = S.roundDamage.toLocaleString();
+  document.getElementById("sumAvg").textContent = avg.toLocaleString();
+  renderDummy();
+  renderTeam();
+  renderHand();
+  renderUltRow();
+  renderTuning();
+  renderLog();
+  renderConfig();
+  const undoBtn = document.getElementById("undoBtn");
+  if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+}
+
+function renderDummy() {
+  const d = dummy();
+  const el = document.getElementById("dummyView");
+  const hpPct = Math.max(0, Math.min(100, d.hp / d.maxHp * 100));
+  const chips = Object.entries(d.status).map(([k, v]) => {
+    const txt = v.stacks ? k + "×" + v.stacks : k + " " + (v.v || 0) + "%";
+    return '<span class="chip red">' + txt + '</span>';
+  }).join("");
+  el.innerHTML =
+    '<div class="hpbar"><div style="width:' + hpPct + '%"></div></div>' +
+    '<div class="kv">' +
+    '<span>生命</span><span>' + Math.max(0, d.hp).toLocaleString() + '</span>' +
+    '<span>现实防御</span><span>' + d.defR + '</span>' +
+    '<span>精神防御</span><span>' + d.defM + '</span>' +
+    '<span>抗爆率</span><span>' + d.critRes + '%</span>' +
+    '<span>暴击防御</span><span>' + d.critDef + '%</span>' +
+    '<span>受创减免</span><span>' + d.traumaRes + '%</span>' +
+    '<span>克制系数</span><span>' + (d.adv || 30) + '%</span>' +
+    '<span>灵感</span><span>' + d.afflatus + '</span>' +
+    '</div><div class="chips">' + chips + '</div>';
+}
+
+function statusChips(c) {
+  const parts = [];
+  if (c.portray > 0) parts.push('<span class="chip gold">塑造' + c.portray + '</span>');
+  for (const k of Object.keys(c.status)) {
+    const st = c.status[k];
+    if (!st) continue;
+    if (["独白", "群像", "筹备·虚构集", "战备", "礼仪：暴击创伤", "四方城"].includes(k) && st.stacks > 0) {
+      parts.push('<span class="chip blue">' + STATUS_NAMES[k] + "×" + st.stacks + '</span>');
+    } else if (["加护", "主见", "攻坚", "闪击", "教条", "连续行动Ⅰ", "武装整修", "战备部署", "热处理护盾"].includes(k)) {
+      parts.push('<span class="chip gold">' + STATUS_NAMES[k] + '</span>');
+    } else if (k === "默契同调" && st.stacks > 0) {
+      parts.push('<span class="chip green">默契同调×' + st.stacks + '</span>');
+    } else if (k === "尘酿鹰") {
+      parts.push('<span class="chip green">尘酿鹰</span>');
+    } else if (k === "燃烧" && st.stacks > 0) {
+      parts.push('<span class="chip red">燃烧×' + st.stacks + '</span>');
+    }
+  }
+  if (c.id === "ran") parts.push('<span class="chip gold">使役通感 ' + Math.floor(c.energy) + '%</span>');
+  return parts.join("");
+}
+
+function renderTeam() {
+  const el = document.getElementById("teamView");
+  el.innerHTML = S.team.map(c => {
+    const st = c.stats;
+    return '<div class="char">' +
+      '<h3>' + c.name + ' <span class="muted">' + c.def.afflatus + "/" + c.def.trauma + '</span></h3>' +
+      '<div class="passion">激情 ' + c.passion + '/' + c.maxPassion + (c.id === "ran" ? ' · 能量 ' + Math.floor(c.energy) + '%' : '') + '</div>' +
+      '<div class="kv">' +
+      '<span>攻击</span><span>' + st.atk + '</span>' +
+      '<span>暴击率</span><span>' + st.critRate + '%</span>' +
+      '<span>暴击创伤</span><span>' + st.critDmg + '%</span>' +
+      '<span>术法/仪式威力</span><span>' + st.spellPower + '/' + st.ritualPower + '%</span>' +
+      '<span>创伤加成</span><span>' + st.traumaUp + '%</span>' +
+      '</div>' +
+      '<div class="dmg">本回合 <b>' + c.dmgRound.toLocaleString() + '</b> · 累计 <b>' + c.dmgTotal.toLocaleString() + '</b></div>' +
+      '<div class="chips">' + statusChips(c) + '</div>' +
+      '</div>';
+  }).join("");
+}
+
+function renderHand() {
+  const el = document.getElementById("handView");
+  const targets = moveSource ? '<div class="move-targets"><span class="muted">移动到：</span>' +
+    S.hand.map((_, i) => '<button onclick="moveTo(\'' + moveSource + '\',' + i + ')">第' + (i + 1) + '位</button>').join("") +
+    '<button onclick="moveTo(\'' + moveSource + '\',' + S.hand.length + ')">第' + (S.hand.length + 1) + '位</button>' +
+    '<button onclick="cancelMove()">取消</button></div>' : '';
+  el.innerHTML = targets + S.hand.map(card => {
+    const isUniversal = card.skillId === "universal";
+    const c = isUniversal ? null : byId(card.charId);
+    const skill = card.skillId === "prep" ? { name: "虚构故事集" }
+      : card.skillId === "ult" ? c.def.ult
+      : isUniversal ? { name: "调律·万能" }
+      : c.def.skills.find(s => s.id === card.skillId);
+    const sel = selectedCard === card.uid ? " selected" : (moveSource === card.uid ? " moving" : "");
+    const rankLabel = isUniversal ? "万能" : (card.skillId === "ult" ? "至终的仪式" : (card.rank ? rankName(card.rank) + "阶" : "预备咒语"));
+    return '<div class="card' + sel + '" onclick="selectCard(\'' + card.uid + '\')">' +
+      '<div class="cname">' + (c ? c.name : "调律") + '</div>' +
+      '<div class="sname">' + skill.name + '</div>' +
+      '<div class="rank">' + rankLabel + '</div>' +
+      '<div class="actions">' +
+      (isUniversal ? '' : '<button onclick="event.stopPropagation();playCard(\'' + card.uid + '\')">打出</button>') +
+      '<button onclick="event.stopPropagation();startMove(\'' + card.uid + '\')">移动</button>' +
+      '</div></div>';
+  }).join("") || '<div class="muted">手牌为空</div>';
+}
+
+function startMove(uid) {
+  const card = S.hand.find(x => x.uid === uid);
+  const freeMove = card && card.skillId === "universal";
+  if (!freeMove && S.actionPoints < 1) { log("行动点不足", "buff"); return; }
+  moveSource = uid;
+  selectedCard = null;
+  render();
+}
+
+function cancelMove() {
+  moveSource = null;
+  render();
+}
+
+function moveTo(uid, targetIndex) {
+  if (moveSource !== uid) return;
+  const i = S.hand.findIndex(x => x.uid === uid);
+  if (i < 0) return;
+  const card = S.hand[i];
+  const freeMove = card.skillId === "universal";
+  if (!freeMove && S.actionPoints < 1) { log("行动点不足", "buff"); return; }
+  let t = targetIndex;
+  if (t > i) t -= 1;
+  if (t === i) { moveSource = null; render(); return; }
+  pushUndo();
+  const [moved] = S.hand.splice(i, 1);
+  S.hand.splice(Math.max(0, Math.min(t, S.hand.length)), 0, card);
+  if (!freeMove) {
+    S.actionPoints -= 1;
+    if (card.skillId !== "ult") addTuningEnergy(3);
+  }
+  const c = card.charId ? byId(card.charId) : null;
+  if (!freeMove && c) c.passion = Math.min(c.maxPassion, c.passion + 1);
+  const who = c ? c.name : "万能卡";
+  const other = canMergeWith(card.uid);
+  if (other) {
+    log(who + " 移动卡牌到第" + (t + 1) + "位" + (freeMove ? "" : "，激情+1"), "buff");
+    mergeCards(card.uid, other.uid);
+    return;
+  }
+  moveSource = null;
+  log(who + " 移动卡牌到第" + (t + 1) + "位" + (freeMove ? "" : "，激情+1"), "buff");
+  render();
+}
+
+function selectCard(uid) {
+  if (moveSource) { moveSource = null; render(); return; }
+  selectedCard = selectedCard === uid ? null : uid;
+  render();
+}
+
+function tryMerge(uid) {
+  const other = canMergeWith(uid);
+  if (!other) { log("需要相邻的同阶同技能卡牌才能合成", "buff"); return; }
+  pushUndo();
+  mergeCards(uid, other.uid);
+}
+
+function renderUltRow() {
+  const el = document.getElementById("ultRow");
+  const ran = byId("ran");
+  el.innerHTML =
+    '<button class="primary" ' + (ran.energy >= 100 && !S.extraRound ? '' : 'disabled') + ' onclick="releaseRhiannon()">使役通感（' + Math.floor(ran.energy) + '%）</button>' +
+    '<span class="muted">至终的仪式以手牌形式发放，激情满后下回合发牌时入手</span>';
+}
+
+function setTuning(v) {
+  newBattle();
+  log("已切换调律：" + (v === "initial" ? "最初的刻度" : "未尽的调律"), "buff");
+  render();
+}
+
+function renderTuning() {
+  const el = document.getElementById("tuningPanel");
+  if (!el) return;
+  const t = S.tuning === "initial" ? "最初的刻度" : "未尽的调律";
+  const s1Cost = S.tuningSkill1Cost || 40;
+  const s2Cost = S.tuning === "initial" ? 25 : 0;
+  const charSelect = S.tuning === "unfinished"
+    ? '<select id="tuningChar">' + ORDER.map(id => {
+        const d = CHARACTERS[id];
+        return '<option value="' + id + '">' + d.name + '</option>';
+      }).join("") + '</select>'
+    : '';
+  el.innerHTML =
+    '<div class="kv">' +
+    '<span>调律</span><span>' + t + '</span>' +
+    '<span>司辰激情</span><span>' + S.tuningEnergy + '/99</span>' +
+    '</div>' +
+    '<div class="actions-row">' +
+    charSelect +
+    '<button ' + (S.tuningEnergy >= s1Cost ? '' : 'disabled') + ' onclick="useTuningSkill1()">技能1（' + s1Cost + '）</button>' +
+    '<button ' + (S.tuningEnergy >= s2Cost ? '' : 'disabled') + ' onclick="useTuningSkill2()">技能2' + (s2Cost ? '（' + s2Cost + '）' : '') + '</button>' +
+    '</div>';
+}
+
+function useTuningSkill1() {
+  const cost = S.tuningSkill1Cost || 40;
+  if (S.tuningEnergy < cost) { log("司辰激情不足", "buff"); return; }
+  pushUndo();
+  S.tuningEnergy -= cost;
+  if (S.tuning === "initial") {
+    S.tuningSkill1Cost = Math.min(60, cost + 10);
+    S.hand.unshift({ charId: null, skillId: "universal", rank: 0, uid: "uni-" + Math.random().toString(36).slice(2) });
+    log("最初的刻度 技能1：生成万能卡", "buff");
+  } else {
+    const cid = document.getElementById("tuningChar") ? document.getElementById("tuningChar").value : ORDER[0];
+    const def = CHARACTERS[cid];
+    S.tuningSkill1Cost = Math.min(50, cost + 5);
+    S.hand.unshift({ charId: cid, skillId: def.skills[1].id, rank: 1, uid: "tune-" + Math.random().toString(36).slice(2), tuningTemp: true });
+    S.hand.unshift({ charId: cid, skillId: def.skills[0].id, rank: 1, uid: "tune-" + Math.random().toString(36).slice(2), tuningTemp: true });
+    log("未尽的调律 技能1：生成" + def.name + "两张1阶小技能（回合结束未使用会消失）", "buff");
+  }
+  render();
+}
+
+function useTuningSkill2() {
+  const cost = S.tuning === "initial" ? 25 : 0;
+  if (S.tuningEnergy < cost) { log("司辰激情不足", "buff"); return; }
+  if (S.tuning === "initial") {
+    if (!S.hand.some(x => x.skillId !== "ult")) { log("最初的刻度 技能2：没有可替换的非仪式咒语", "buff"); return; }
+    pushUndo();
+    S.tuningEnergy -= cost;
+    randomizeHandRanks();
+    log("最初的刻度 技能2：保留阶次，随机替换非仪式咒语", "buff");
+  } else {
+    let idx = -1;
+    for (let i = S.hand.length - 1; i >= 0; i--) {
+      if (S.hand[i].skillId !== "ult") { idx = i; break; }
+    }
+    if (idx === -1) { log("未尽的调律 技能2：没有可移除的非仪式咒语", "buff"); return; }
+    pushUndo();
+    const card = S.hand[idx];
+    const removedName = card.skillId === "universal" ? "万能卡" : (card.skillId === "prep" ? "虚构故事集" : CHARACTERS[card.charId].skills.find(s => s.id === card.skillId).name);
+    S.hand.splice(idx, 1);
+    addTuningEnergy(10);
+    log("未尽的调律 技能2：移除" + removedName + "，司辰激情+10", "buff");
+    autoMergeHand();
+  }
+  render();
+}
+
+function randomizeHandRanks() {
+  for (const card of S.hand) {
+    if (card.skillId === "ult") continue;
+    const def = CHARACTERS[ORDER[Math.floor(Math.random() * ORDER.length)]];
+    const skill = def.skills[Math.floor(Math.random() * def.skills.length)];
+    let oldRank = card.rank;
+    if (!oldRank || oldRank < 1) oldRank = 1;
+    card.charId = def.id;
+    card.skillId = skill.id;
+    card.rank = oldRank;
+    delete card.tuningTemp;
+  }
+}
+
+function toggleDeck() {
+  const el = document.getElementById("deckView");
+  if (el.style.display === "none") { renderDeck(); el.style.display = "block"; }
+  else el.style.display = "none";
+}
+
+function renderDeck() {
+  const el = document.getElementById("deckView");
+  const rows = [];
+  for (const id of ORDER) {
+    const def = CHARACTERS[id];
+    for (const skill of def.skills) {
+      const left = S.deck.filter(x => x.charId === id && x.skillId === skill.id).length;
+      rows.push(def.name + " · " + skill.name + "：" + left + "/8");
+    }
+  }
+  el.innerHTML = '<div class="muted">牌库剩余（每技能 8 张，发完自动重置）</div>' + rows.map(r => '<div>' + r + '</div>').join("");
+}
+
+function renderLog() {
+  const el = document.getElementById("logView");
+  el.innerHTML = S.log.map(x => '<div class="' + x.cls + '">' + escapeHtml(x.msg) + '</div>').join("");
+}
+
+function renderConfig() {
+  const el = document.getElementById("configPanel");
+  el.innerHTML = S.team.map(c => {
+    const res = currentResonance(c);
+    const presetInfo = (window.RESONANCE_PRESETS || {})[c.id] || {};
+    const resLabel = c.resonanceMode === "custom" ? "自定义" : (c.resonanceMode === "r15" ? (presetInfo.label15 || "15预设") : (presetInfo.label10 || "10预设"));
+    const resDesc = "共鸣" + resLabel + "：攻+" + res.flat.atk + " 生+" + res.flat.hp + " 现防+" + res.flat.defR + " 精防+" + res.flat.defM + " 攻%" + res.pct.atk + " 暴击率+" + res.pct.critRate + "% 暴击创伤+" + res.pct.critDmg + "% 创伤加成+" + res.pct.traumaUp + "% 术法+" + (res.pct.spellPower || 0) + "% 仪式+" + (res.pct.ritualPower || 0) + "%";
+    const r15Note = c.resonanceMode === "r15" ? '<div class="muted" style="color:#9a6a00">预设为直接录入的最终共鸣数值；需要调整请切到自定义手动输入</div>' : '';
+    const customHtml = '<div id="customRes-' + c.id + '" ' + (c.resonanceMode === "custom" ? '' : 'style="display:none"') + '>' + customResInputs(c) + '</div>';
+    const portrayInfo = (window.PORTRAY || {})[c.id] || {};
+    const portrayDesc = (portrayInfo[c.portray] || {}).desc || "";
+    return '<details><summary>' + c.name + ' 配置</summary>' +
+      '<label for="psy-' + c.id + '">心相</label><select id="psy-' + c.id + '" name="psy-' + c.id + '" aria-label="心相" onchange="setPsychube(\'' + c.id + '\',this.value)">' +
+      Object.values(PSYCHUBES).map(p => '<option value="' + p.id + '"' + (p.id === c.psychube ? ' selected' : '') + '>' + p.name + '</option>').join("") +
+      '</select>' +
+      '<label for="por-' + c.id + '">塑造</label><select id="por-' + c.id + '" name="por-' + c.id + '" aria-label="塑造" onchange="setPortray(\'' + c.id + '\',this.value)">' +
+      [0, 1, 2, 3, 4, 5].map(v => '<option value="' + v + '"' + (c.portray === v ? ' selected' : '') + '>' + (v === 0 ? "塑造0（默认）" : "塑造" + v) + '</option>').join("") +
+      '</select>' +
+      '<div class="muted">' + escapeHtml(portrayDesc) + '</div>' +
+      '<label for="res-' + c.id + '">共鸣</label><select id="res-' + c.id + '" name="res-' + c.id + '" aria-label="共鸣" onchange="setResonanceMode(\'' + c.id + '\',this.value)">' +
+      '<option value="r10"' + (c.resonanceMode === "r10" ? ' selected' : '') + '>' + (presetInfo.label10 || "共鸣10预设") + '</option>' +
+      '<option value="r15"' + (c.resonanceMode === "r15" ? ' selected' : '') + '>' + (presetInfo.label15 || "共鸣15预设") + '</option>' +
+      '<option value="custom"' + (c.resonanceMode === "custom" ? ' selected' : '') + '>自定义</option>' +
+      '</select>' +
+      '<div class="muted">' + resDesc + '</div>' +
+      r15Note + customHtml +
+      '</details>';
+  }).join("");
+}
+
+function customResInputs(c) {
+  const flat = [["atk", "攻击+"], ["hp", "生命+"], ["defR", "现实防御+"], ["defM", "精神防御+"]];
+  const pct = [["atk", "攻击%+"], ["hp", "生命%+"], ["defR", "现实防御%+"], ["defM", "精神防御%+"], ["critRate", "暴击率%+"], ["critDmg", "暴击创伤%+"], ["traumaUp", "创伤加成%+"], ["spellPower", "术法威力%+"], ["ritualPower", "仪式威力%+"], ["pen", "穿透%+"], ["critRes", "抗暴率%+"], ["traumaRes", "受创减免%+"], ["critDef", "暴击防御%+"]];
+  return flat.map(([k, label]) =>
+    '<label for="cf-' + c.id + '-' + k + '">' + label + '</label>' +
+    '<input id="cf-' + c.id + '-' + k + '" type="number" value="' + c.customRes.flat[k] + '" onchange="setCustomRes(\'' + c.id + '\',\'' + k + '\',this.value,\'flat\')">'
+  ).join("") +
+  pct.map(([k, label]) =>
+    '<label for="cp-' + c.id + '-' + k + '">' + label + '</label>' +
+    '<input id="cp-' + c.id + '-' + k + '" type="number" value="' + c.customRes.pct[k] + '" onchange="setCustomRes(\'' + c.id + '\',\'' + k + '\',this.value,\'pct\')">'
+  ).join("");
+}
+
+function setResonanceMode(id, mode) {
+  clearUndoHistory();
+  byId(id).resonanceMode = mode;
+  log(byId(id).name + " 共鸣切换：" + (mode === "custom" ? "自定义" : (mode === "r15" ? "共鸣15预设" : "共鸣10预设")), "buff");
+  refreshStats();
+  render();
+}
+
+function setCustomRes(id, key, val, kind) {
+  clearUndoHistory();
+  const c = byId(id);
+  const v = +val || 0;
+  if (kind === "flat") c.customRes.flat[key] = v;
+  else c.customRes.pct[key] = v;
+  refreshStats();
+  render();
+}
+
+function setVariant(id, v) {
+  clearUndoHistory();
+  const c = byId(id);
+  c.variant = v;
+  log(c.name + " 共鸣调频：" + v, "buff");
+  refreshStats();
+  render();
+}
+
+function variantFromCode(code, mode) {
+  try {
+    const raw = atob(code.replace(/=+$/, "") + "==");
+    const b0 = raw.charCodeAt(0);
+    const map = RESONANCE_VARIANT_CODE[mode] || {};
+    for (const name of Object.keys(map)) {
+      if (map[name] === b0) return name;
+    }
+  } catch (e) { /* ignore */ }
+  return "平和";
+}
+
+let RESONANCE_INDEX = null;
+
+function buildResonanceIndex() {
+  RESONANCE_INDEX = new Map();
+  if (!window.RESONANCE_DICT) return;
+  for (const mode of Object.keys(window.RESONANCE_DICT)) {
+    const mp = window.RESONANCE_DICT[mode];
+    for (const key of Object.keys(mp)) {
+      RESONANCE_INDEX.set(mp[key].replace(/=+$/, ""), {
+        mode,
+        counts: key.slice(1, -1).split(",").map(Number),
+        raw: mp[key]
+      });
+    }
+  }
+}
+
+function findResonanceByCode(code) {
+  if (!code) return null;
+  if (!RESONANCE_INDEX) buildResonanceIndex();
+  const found = RESONANCE_INDEX.get(code.replace(/=+$/, ""));
+  if (!found) return null;
+  return { mode: found.mode, counts: found.counts, variant: variantFromCode(found.raw, found.mode) };
+}
+
+function computeResonanceStats(counts, variantName, mode) {
+  const mainOut = (RESONANCE_MODE_VARIANTS[mode] || {})[variantName] || [0, 0, 0, 0, 0, 0, 0];
+  const mainSurv = (RESONANCE_MODE_VARIANTS_SURV[mode] || {})[variantName] || [0, 0, 0, 0, 0, 0, 0];
+  const block = computeBlockStats(counts, mode);
+  const out = block.out.slice();
+  const surv = block.surv.slice();
+  for (let j = 0; j < 7; j++) {
+    out[j] += mainOut[j];
+    surv[j] += mainSurv[j];
+  }
+  const round = x => Math.round(x * 1000) / 10;
+  return { out: out.map(round), surv: surv.map(round) };
+}
+
+function computeBlockStats(counts, mode) {
+  const out = [0, 0, 0, 0, 0, 0, 0];
+  const surv = [0, 0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < 11; i++) {
+    const mult = counts[i] === 4 ? 3.3 : counts[i];
+    const attrs = RESONANCE_BLOCK_ATTRS[i];
+    const survAttrs = RESONANCE_BLOCK_ATTRS_SURV[i];
+    for (let j = 0; j < 7; j++) {
+      out[j] += attrs[j] * mult;
+      surv[j] += survAttrs[j] * mult;
+    }
+  }
+  const round = x => Math.round(x * 1000) / 10;
+  return { out: out.map(round), surv: surv.map(round) };
+}
+
+function totalResonanceSlots(counts) {
+  let t = 0;
+  for (let i = 0; i < 11; i++) t += counts[i] * RESONANCE_BLOCK_SIZE[i];
+  return t;
+}
+
+function bestResonanceCombo(mode, variantName, direction) {
+  if (!window.RESONANCE_DICT || !window.RESONANCE_DICT[mode]) return null;
+  const dict = window.RESONANCE_DICT[mode];
+  let best = null;
+  for (const key of Object.keys(dict)) {
+    const counts = key.slice(1, -1).split(",").map(Number);
+    const stats = computeResonanceStats(counts, variantName, mode);
+    const vec = direction === "surv" ? stats.surv : stats.out;
+    const score = vec[0];
+    if (!best || score > best.score || (score === best.score && totalResonanceSlots(counts) > totalResonanceSlots(best.counts))) {
+      best = { counts, code: dict[key], stats, score };
+    }
+  }
+  return best;
+}
+
+function computeResonance15Presets() {
+  if (!window.RESONANCE_DICT) return;
+  for (const id of Object.keys(RESONANCE)) {
+    const mode = CHAR_MODE[id] || "X";
+    const best = bestResonanceCombo(mode, "平和", "out");
+    if (!best) continue;
+    const o = best.stats.out;
+    const sv = best.stats.surv;
+    RESONANCE15[id].pct = Object.assign({}, RESONANCE15[id].pct, {
+      atk: o[0], hp: sv[0], defR: sv[1], defM: sv[2],
+      critRate: o[2], critDmg: o[3], traumaUp: o[1],
+      spellPower: o[4], ritualPower: o[5], pen: o[6],
+      critRes: sv[4], traumaRes: sv[3], critDef: sv[5]
+    });
+    RESONANCE15[id].code = best.code;
+  }
+}
+
+function resonanceMain(id, level, variant) {
+  const byVariant = (window.RESONANCE_MAIN || {})[id];
+  if (!byVariant) return null;
+  return (byVariant[variant] || {})[level] || null;
+}
+
+function addPct(target, src) {
+  for (const k of Object.keys(src || {})) target[k] = (target[k] || 0) + src[k];
+  return target;
+}
+
+function currentResonance(c) {
+  if (c.resonanceMode === "custom") return c.customRes;
+  const level = c.resonanceMode === "r15" ? 15 : 10;
+  const preset = (window.RESONANCE_PRESETS || {})[c.id] || {};
+  const row = preset[level];
+  if (row) return { flat: row.flat, pct: Object.assign({}, row.pct) };
+  const main = resonanceMain(c.id, level, c.variant);
+  if (!main) return c.resonanceMode === "r15" ? RESONANCE15[c.id] : RESONANCE[c.id];
+  const pct = { atk: 0, hp: 0, defR: 0, defM: 0, critRate: 0, critDmg: 0, traumaUp: 0, spellPower: 0, ritualPower: 0, pen: 0, critRes: 0, traumaRes: 0, critDef: 0 };
+  addPct(pct, main.pct);
+  return { flat: main.flat, pct };
+}
+
+function importResonanceCode(id) {
+  const c = byId(id);
+  const input = document.getElementById("resCode-" + id);
+  const found = findResonanceByCode((input.value || "").trim());
+  if (!found) {
+    log("未找到该共鸣码，请从共鸣工具复制完整码", "buff");
+    return;
+  }
+  clearUndoHistory();
+  const stats = computeResonanceStats(found.counts, found.variant, found.mode);
+  c.resonanceMode = "custom";
+  c.variant = found.variant;
+  c.customRes.flat = { atk: 0, hp: 0, defR: 0, defM: 0 };
+  c.customRes.pct = {
+    atk: stats.out[0], hp: stats.surv[0], defR: stats.surv[1], defM: stats.surv[2],
+    critRate: stats.out[2], critDmg: stats.out[3], traumaUp: stats.out[1],
+    spellPower: stats.out[4], ritualPower: stats.out[5], pen: stats.out[6],
+    critRes: stats.surv[4], traumaRes: stats.surv[3], critDef: stats.surv[5]
+  };
+  log(c.name + " 已导入共鸣码：" + found.mode + " / " + found.variant, "buff");
+  refreshStats();
+  render();
+}
+
+function setPsychube(id, psId) {
+  clearUndoHistory();
+  byId(id).psychube = psId;
+  log("已调整 " + byId(id).name + " 心相：" + PSYCHUBES[psId].name, "buff");
+  refreshStats();
+  render();
+}
+
+function setPortray(id, level) {
+  clearUndoHistory();
+  const c = byId(id);
+  c.portray = +level || 0;
+  LAST_PORTRAY[id] = c.portray;
+  if (id === "ran") {
+    c.energy = c.portray >= 5 ? 100 : (c.portray >= 2 ? 85 : 70);
+    c.passion = c.portray >= 1 ? 5 : 3;
+  }
+  syncUltCard(c);
+  log(c.name + " 塑造切换：" + (c.portray === 0 ? "塑造0" : "塑造" + c.portray), "buff");
+  refreshStats();
+  render();
+}
+
+function syncUltCard(c) {
+  const hasUlt = S.hand.some(x => x.charId === c.id && x.skillId === "ult");
+  if (c.passion >= 5) {
+    if (hasUlt) return;
+    if (S.hand.length >= handLimit()) {
+      const idx = S.hand.findIndex(x => x.skillId !== "ult" && x.skillId !== "prep");
+      if (idx >= 0) {
+        const removed = S.hand.splice(idx, 1)[0];
+        S.deck.push(removed);
+        log(c.name + " 大招优先：移回一张普通牌腾出位置", "buff");
+      } else {
+        return;
+      }
+    }
+    S.hand.unshift({ charId: c.id, skillId: "ult", rank: 0, uid: "ult-" + Math.random().toString(36).slice(2) });
+    log(c.name + " 获得至终的仪式卡", "buff");
+  } else if (hasUlt) {
+    S.hand = S.hand.filter(x => !(x.charId === c.id && x.skillId === "ult"));
+    log(c.name + " 激情不足，移除至终的仪式卡", "buff");
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+buildResonanceIndex();
+computeResonance15Presets();
+newBattle();
+</script>
+</body>
+</html>
