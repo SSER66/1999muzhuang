@@ -1316,7 +1316,8 @@ function castJUlt(c) {
   let overMult = 0;
   if (c.def.reverie) {
     mult += mult;
-    overMult = overflow * (c.portray >= 4 ? 75 : 50);
+    // 游戏当前 bug：狂想Ⅲ溢出额外倍率被双倍计算，按实际表现 0塑 100%/层、塑造4 150%/层
+    overMult = overflow * (c.portray >= 4 ? 150 : 100);
     const traumaV = Math.min(99, burn * 2.5);
     addTeam("traumaUp", "创伤加成提高", traumaV, 3);
     log("J 狂想：全队创伤加成 +" + traumaV + "%（3回合）", "buff");
