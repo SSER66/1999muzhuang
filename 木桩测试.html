@@ -954,10 +954,9 @@ function calcHit(c, opts) {
   const lingxi = S.teamBuffs.lingxi.stacks || 0;
   const lingxiRate = byId("ran") && byId("ran").portray >= 2 ? 5 : 4;
   const lingxiMult = lingxi * lingxiRate / 100;
-  const advMult = 1 + (dmy.adv || 30) / 100 + lingxiMult;
+  const advMult = 1 + (advantaged ? (dmy.adv || 30) / 100 + lingxiMult : 0);
   let affinity = 1;
-  if (advantaged) affinity += (dmy.adv || 30) / 100;
-  affinity += lingxiMult;
+  if (advantaged) affinity += (dmy.adv || 30) / 100 + lingxiMult;
   const finalTerm = 1 + S.finalUp / 100 - S.finalRes / 100;
   const mult = opts.mult + (opts.mainExtra || 0) + (opts.extraMult || 0) + (opts.overflowMult || 0);
   let dmg = (mult / 100) * atkDef * trauma * critTerm * power * affinity * finalTerm;
@@ -1200,6 +1199,13 @@ function capStacks(c, id, cap) {
   if (c.status[id] && c.status[id].stacks > cap) c.status[id].stacks = cap;
 }
 
+function consumeRitualLayers(c) {
+  if (c.status && c.status["礼仪：暴击创伤"]) {
+    delete c.status["礼仪：暴击创伤"];
+    log(c.name + " 消耗【礼仪：暴击创伤】", "buff");
+  }
+}
+
 function castUltCard(c) {
   if (!c || c.passion < 5) return;
   const cost = c.id === "xg" ? c.passion : 5;
@@ -1210,6 +1216,7 @@ function castUltCard(c) {
   else if (c.id === "mld") castMldUlt(c);
   else if (c.id === "j") castJUlt(c);
   else if (c.id === "ran") castRanUlt(c);
+  consumeRitualLayers(c);
 
   // 其他友方释放仪式 -> 虚构集被动
   if (c.id !== "xg") {
@@ -1376,6 +1383,7 @@ function castStoryBook() {
   if (target.id === "mld") castMldUlt(target, true);
   else if (target.id === "j") castJUlt(target);
   else if (target.id === "ran") castRanUltFromStory(target);
+  consumeRitualLayers(target);
   target.passion = Math.min(target.maxPassion, cost); // 回复消耗的激情（上限为释放所需）
   xg.passion = Math.min(xg.maxPassion, xg.passion + 1);
   const reverieMult = xg.def.reverie ? 2 : 1;
@@ -1476,6 +1484,7 @@ function dummyAttack() {
   if (mld && (mld.status["闪击"] || mld.status["攻坚"])) {
     if (mld.status["攻坚"]) {
       castMldUlt(mld, true, true);
+      consumeRitualLayers(mld);
       log("莫莉德尔 攻坚反击：释放不再迷失的归途者", "buff");
     } else {
       const s1 = mld.def.skills.find(s => s.id === "s1");
