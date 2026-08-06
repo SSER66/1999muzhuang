@@ -1449,7 +1449,9 @@ function endTurn() {
     // 先于发牌结算：靠默契同调补满激情后，回合开始发牌阶段会正常发放大招卡
     ran.status["默契同调"].stacks -= 1;
     ran.passion = Math.min(ran.maxPassion, ran.passion + 1);
-    log("小瑞安侬 回合结束：默契同调换激情+1", "buff");
+    const energyGain = ran.portray >= 5 ? 12.5 : (ran.portray >= 2 ? 10 : 8);
+    ran.energy = Math.min(150, ran.energy + energyGain);
+    log("小瑞安侬 回合结束：默契同调换激情+1，使役通感+" + energyGain + "%", "buff");
   }
   if (!S.extraRound) dummyAttack();
   tickStatuses();
