@@ -750,6 +750,7 @@ function newBattle() {
   S.tuning = (document.getElementById("tuningSelect") || {}).value || "unfinished";
   S.tuningEnergy = S.tuning === "initial" ? 15 : 25;
   S.tuningSkill1Cost = 40;
+  S.tuningUsed = { s1: 0, s2: 0 };
   if (S.tuning === "unfinished" && S.hand.length > 0) {
     const firstDealt = [...S.hand].reverse().find(x => x.skillId !== "ult" && x.skillId !== "prep") || S.hand[S.hand.length - 1];
     S.hand.unshift(Object.assign({}, firstDealt, { uid: "start-extra-" + Math.random().toString(36).slice(2) }));
@@ -822,6 +823,7 @@ function turnStart() {
   S.maxActionPoints = ap;
   S.actionPoints = ap;
   S.jCounterCount = 0;
+  S.tuningUsed = { s1: 0, s2: 0 };
 
   if (S.tuning === "initial" && S.round > 1) addTuningEnergy(3);
 
@@ -1853,6 +1855,12 @@ function renderTuning() {
         return '<option value="' + id + '">' + d.name + '</option>';
       }).join("") + '</select>'
     : '';
+  const s1Used = S.tuningUsed && S.tuningUsed.s1 >= 1;
+  const s2Used = S.tuning === "unfinished" && S.tuningUsed && S.tuningUsed.s2 >= 1;
+  const s1Disabled = s1Used || S.tuningEnergy < s1Cost;
+  const s2Disabled = s2Used || S.tuningEnergy < s2Cost;
+  const s1Label = "技能1（" + s1Cost + "）" + (s1Used ? "·已用" : "");
+  const s2Label = "技能2" + (s2Cost ? "（" + s2Cost + "）" : "") + (s2Used ? "·已用" : "");
   el.innerHTML =
     '<div class="kv">' +
     '<span>调律</span><span>' + t + '</span>' +
@@ -1860,16 +1868,18 @@ function renderTuning() {
     '</div>' +
     '<div class="actions-row">' +
     charSelect +
-    '<button ' + (S.tuningEnergy >= s1Cost ? '' : 'disabled') + ' onclick="useTuningSkill1()">技能1（' + s1Cost + '）</button>' +
-    '<button ' + (S.tuningEnergy >= s2Cost ? '' : 'disabled') + ' onclick="useTuningSkill2()">技能2' + (s2Cost ? '（' + s2Cost + '）' : '') + '</button>' +
+    '<button ' + (s1Disabled ? 'disabled' : '') + ' onclick="useTuningSkill1()">' + s1Label + '</button>' +
+    '<button ' + (s2Disabled ? 'disabled' : '') + ' onclick="useTuningSkill2()">' + s2Label + '</button>' +
     '</div>';
 }
 
 function useTuningSkill1() {
   const cost = S.tuningSkill1Cost || 40;
   if (S.tuningEnergy < cost) { log("司辰激情不足", "buff"); return; }
+  if (S.tuningUsed.s1 >= 1) { log("技能1 本回合已使用", "buff"); return; }
   pushUndo();
   S.tuningEnergy -= cost;
+  S.tuningUsed.s1 += 1;
   if (S.tuning === "initial") {
     S.tuningSkill1Cost = Math.min(60, cost + 10);
     S.hand.unshift({ charId: null, skillId: "universal", rank: 0, uid: "uni-" + Math.random().toString(36).slice(2) });
@@ -1888,6 +1898,7 @@ function useTuningSkill1() {
 function useTuningSkill2() {
   const cost = S.tuning === "initial" ? 25 : 0;
   if (S.tuningEnergy < cost) { log("司辰激情不足", "buff"); return; }
+  if (S.tuning === "unfinished" && S.tuningUsed.s2 >= 1) { log("未尽的调律 技能2 本回合已使用", "buff"); return; }
   if (S.tuning === "initial") {
     if (!S.hand.some(x => x.skillId !== "ult")) { log("最初的刻度 技能2：没有可替换的非仪式咒语", "buff"); return; }
     pushUndo();
@@ -1901,6 +1912,7 @@ function useTuningSkill2() {
     }
     if (idx === -1) { log("未尽的调律 技能2：没有可移除的非仪式咒语", "buff"); return; }
     pushUndo();
+    S.tuningUsed.s2 += 1;
     const card = S.hand[idx];
     const removedName = card.skillId === "universal" ? "万能卡" : (card.skillId === "prep" ? "虚构故事集" : CHARACTERS[card.charId].skills.find(s => s.id === card.skillId).name);
     S.hand.splice(idx, 1);
