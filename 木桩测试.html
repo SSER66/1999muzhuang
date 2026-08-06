@@ -631,11 +631,10 @@ function refreshStats() {
     let spellPower = 0, ritualPower = 0, traumaUp = 0, critDmgExtra = 0;
     if (c.id === "xg" && c.def.reverie) ritualPower += rev.ritualPower || 0;
     // 群鸟之歌（全队）
-    if (S.teamBuffs.spellPower.d > 0) spellPower += S.teamBuffs.spellPower.v;
-    if (S.teamBuffs.ritualPower.d > 0) ritualPower += S.teamBuffs.ritualPower.v;
-    if (S.teamBuffs.traumaUp.d > 0) traumaUp += S.teamBuffs.traumaUp.v;
-    if (S.teamBuffs.dmgUp.d > 0) traumaUp += S.teamBuffs.dmgUp.v;
-    critDmgExtra += S.teamBuffs.critDmgUp.d > 0 ? S.teamBuffs.critDmgUp.v : 0;
+    spellPower += teamBuffTotal("spellPower");
+    ritualPower += teamBuffTotal("ritualPower");
+    traumaUp += teamBuffTotal("traumaUp") + teamBuffTotal("dmgUp");
+    critDmgExtra += teamBuffTotal("critDmgUp");
     if (res.pct.spellPower) spellPower += res.pct.spellPower;
     if (res.pct.ritualPower) ritualPower += res.pct.ritualPower;
     if (res.pct.traumaUp) traumaUp += res.pct.traumaUp;
@@ -722,9 +721,9 @@ function newBattle() {
       status: emptyStatus(), burnFrom: null
     },
     teamBuffs: {
-      dmgUp: { v: 0, d: 0 }, critDmgUp: { v: 0, d: 0 },
-      spellPower: { v: 0, d: 0 }, ritualPower: { v: 0, d: 0 },
-      traumaUp: { v: 0, d: 0 }, traumaResUp: { v: 0, d: 0 },
+      dmgUp: [], critDmgUp: [],
+      spellPower: [], ritualPower: [],
+      traumaUp: [], traumaResUp: [], counterTrauma: [],
       lingxi: { stacks: 0, dur: 0 }
     },
     finalUp: 0, finalRes: 0,
@@ -853,8 +852,8 @@ function turnStart() {
   const j = byId("j");
   if (j && j.status["燃烧"]) {
     const n = j.status["燃烧"].stacks;
-    if (n >= 10) { addTeam("traumaResUp", n, 1); log("J 狂想：全队受创减免 +" + n + "%（1回合）"); }
-    if (n >= 30) { addTeam("counterTrauma", n, 1); log("J 狂想：全队反击创伤加成 +" + n + "%（1回合）"); }
+    if (n >= 10) { addTeam("traumaResUp", "受创减免提高", n, 1); log("J 狂想：全队受创减免 +" + n + "%（1回合）"); }
+    if (n >= 30) { addTeam("counterTrauma", "反击创伤加成提高", n, 1); log("J 狂想：全队反击创伤加成 +" + n + "%（1回合）"); }
   }
 
   // 大招卡优先发放：先发完全部激情满角色的大招，再补小技能
@@ -879,10 +878,30 @@ function turnStart() {
   autoMergeHand();
 }
 
-function addTeam(key, v, d) {
-  if (!S.teamBuffs[key]) S.teamBuffs[key] = { v: 0, d: 0 };
-  if (v !== undefined) S.teamBuffs[key].v = v;
-  S.teamBuffs[key].d = Math.max(S.teamBuffs[key].d, d || 0);
+function teamBuffArr(key) {
+  if (!Array.isArray(S.teamBuffs[key])) S.teamBuffs[key] = [];
+  return S.teamBuffs[key];
+}
+
+function teamBuffTotal(key) {
+  return teamBuffArr(key).reduce((sum, e) => sum + (e.d > 0 ? e.v : 0), 0);
+}
+
+function teamBuffEntry(key, name) {
+  return teamBuffArr(key).find(e => e.name === name) || null;
+}
+
+function addTeam(key, name, v, d, opts) {
+  const arr = teamBuffArr(key);
+  const e = arr.find(x => x.name === name);
+  if (!e) { arr.push({ name, v, d: d || 0 }); return; }
+  if (opts && opts.named) {
+    e.v = v;
+    e.d = Math.max(e.d, d || 0);
+  } else if (v > e.v) {
+    e.v = v;
+    e.d = d || 0;
+  }
 }
 
 function addLingxi(n, dur) {
@@ -908,9 +927,7 @@ function calcHit(c, opts) {
     const zb = mld && mld.status["战备"] ? mld.status["战备"].stacks : 0;
     traumaUp += zb * (mld && mld.portray >= 2 ? 2.5 : 2);
   }
-  if (opts.isCounter && S.teamBuffs.counterTrauma && S.teamBuffs.counterTrauma.d > 0) {
-    traumaUp += S.teamBuffs.counterTrauma.v;
-  }
+  if (opts.isCounter) traumaUp += teamBuffTotal("counterTrauma");
   let trauma = 1 + traumaUp / 100 - dmy.traumaRes / 100;
   if (trauma < 0.3) trauma = 0.3;
   const critRate = st.critRate - dmy.critRes;
@@ -962,11 +979,14 @@ function psychubeHitSummary(c, opts) {
     if (stacks >= ps.amp.cap) parts.push("暴击率+" + ps.amp.fullCritRate + "%");
   }
   if (c.psychube === "rain") {
-    if (S.teamBuffs.dmgUp.d > 0) parts.push("全队创伤加成+" + round1(S.teamBuffs.dmgUp.v) + "%");
-    if (S.teamBuffs.critDmgUp.d > 0) parts.push("全队暴击创伤+" + round1(S.teamBuffs.critDmgUp.v) + "%");
+    const dmg = teamBuffEntry("dmgUp", "昨日雨声轻");
+    const crit = teamBuffEntry("critDmgUp", "昨日雨声轻");
+    if (dmg && dmg.d > 0) parts.push("全队创伤加成+" + round1(dmg.v) + "%");
+    if (crit && crit.d > 0) parts.push("全队暴击创伤+" + round1(crit.v) + "%");
   }
-  if (c.psychube === "family" && S.teamBuffs.critDmgUp.d > 0) {
-    parts.push("全队暴击创伤+" + round1(S.teamBuffs.critDmgUp.v) + "%（激情）");
+  if (c.psychube === "family") {
+    const fam = teamBuffEntry("critDmgUp", "家庭指导员");
+    if (fam && fam.d > 0) parts.push("全队暴击创伤+" + round1(fam.v) + "%（激情）");
   }
   if (!parts.length) return "";
   return "｜心相[" + ps.name + "]：" + parts.join("，");
@@ -1022,18 +1042,19 @@ function playCard(uid) {
   render();
 }
 
-function castAttack(c, card, skill) {
+function castAttack(c, card, skill, extraOpts) {
   const rank = card.rank;
+  const hitOpts = extraOpts || {};
   if (c.id === "xg") {
     if (skill.id === "s1") {
-      const r = calcHit(c, { mult: skill.mult[rank - 1] });
+      const r = calcHit(c, Object.assign({ mult: skill.mult[rank - 1] }, hitOpts));
       dealDamage(c, r.dmg, "字的隐喻 " + rankName(rank) + "阶", r);
       applyExtract(c);
       applyDummyStatus("激情萃取", 2, 0);
     } else {
       const mult = c.portray >= 4 ? [150, 225, 375][rank - 1] : skill.mult[rank - 1];
       const layers = c.portray >= 4 ? 10 : 5;
-      const r = calcHit(c, { mult });
+      const r = calcHit(c, Object.assign({ mult }, hitOpts));
       dealDamage(c, r.dmg, "词的意象 " + rankName(rank) + "阶", r);
       applyExtract(c);
       addStatus(c.status, "独白", layers, 0);
@@ -1042,7 +1063,7 @@ function castAttack(c, card, skill) {
     }
   } else if (c.id === "mld") {
     const mult = c.portray >= 1 ? [150, 225, 375][rank - 1] : skill.mult[rank - 1];
-    const r = calcHit(c, { mult });
+    const r = calcHit(c, Object.assign({ mult }, hitOpts));
     dealDamage(c, r.dmg, "将过往摧毁 " + rankName(rank) + "阶", r);
     applyExtract(c);
     applyDummyStatus("激情萃取", 1, 0);
@@ -1055,7 +1076,7 @@ function castAttack(c, card, skill) {
     const reverie = !!c.def.reverie;
     let burn = 2;
     if (reverie) { mult += mult; burn = 6; }
-    const r = calcHit(c, { mult });
+    const r = calcHit(c, Object.assign({ mult }, hitOpts));
     dealDamage(c, r.dmg, "硬度测试 " + rankName(rank) + "阶", r);
     applyExtract(c);
     applyDummyStatus("燃烧", burn, 0);
@@ -1087,8 +1108,8 @@ function castBuffSkill(c, card, skill) {
   if (c.id === "ran" && skill.id === "s2") {
     consumeTuning(c);
     const birdPower = c.portray >= 1 ? 45 : 30;
-    addTeam("spellPower", birdPower, 3);
-    addTeam("ritualPower", birdPower, 3);
+    addTeam("spellPower", "群鸟之歌", birdPower, 3, { named: true });
+    addTeam("ritualPower", "群鸟之歌", birdPower, 3, { named: true });
     log("小瑞安侬 全队获得群鸟之歌：术法/仪式威力+" + birdPower + "%（3回合）", "buff");
     const hpUp = [12, 13, 14][card.rank - 1];
     c.buffs.maxHpUp = { v: hpUp, d: 3 };
@@ -1097,7 +1118,7 @@ function castBuffSkill(c, card, skill) {
       const baseUp = c.portray >= 3 ? 20 : 15;
       const maxExtra = c.portray >= 3 ? 21 : 15;
       const extra = Math.min(maxExtra, lingxiStacks * 3);
-      addTeam("traumaUp", baseUp + extra, 3);
+      addTeam("traumaUp", "加护", baseUp + extra, 3, { named: true });
       log("小瑞安侬·加护：全队创伤加成 +" + (baseUp + extra) + "%（3回合）", "buff");
     }
     afterRanSpell();
@@ -1137,10 +1158,11 @@ function consumeTuning(c) {
 function afterRanSpell() {
   if (byId("ran").psychube === "rain") {
     const v = PSYCHUBES.rain.amp.spellTeamDmg;
-    const cur = S.teamBuffs.dmgUp;
-    cur.v = Math.min(6, (cur.d > 0 ? cur.v / v : 0) + 1) * v;
-    cur.d = 3;
-    log("昨日雨声轻：全队创伤加成 +" + cur.v + "%（3回合）", "buff");
+    const cur = teamBuffEntry("dmgUp", "昨日雨声轻");
+    const base = cur && cur.d > 0 ? cur.v / v : 0;
+    const newV = Math.min(6, base + 1) * v;
+    addTeam("dmgUp", "昨日雨声轻", newV, 3, { named: true });
+    log("昨日雨声轻：全队创伤加成 +" + newV + "%（3回合）", "buff");
   }
 }
 
@@ -1186,11 +1208,13 @@ function onPassionSpent(c, amount) {
   }
   const mldPs = byId("mld") && byId("mld").psychube === "family" ? PSYCHUBES.family : null;
   if (mldPs) {
-    const t = S.teamBuffs.critDmgUp;
     const v = mldPs.amp.passionCrit;
-    t.v = Math.min(mldPs.amp.cap, (t.d > 0 ? t.v / v : 0) + amount) * v;
-    t.d = Math.max(t.d, 1);
-    log("家庭指导员：全队暴击创伤 +" + t.v + "%", "buff");
+    const t = teamBuffEntry("critDmgUp", "家庭指导员");
+    const base = t && t.d > 0 ? t.v / v : 0;
+    const newV = Math.min(mldPs.amp.cap, base + amount) * v;
+    const newD = t ? Math.max(t.d, 1) : 1;
+    addTeam("critDmgUp", "家庭指导员", newV, newD, { named: true });
+    log("家庭指导员：全队暴击创伤 +" + newV + "%", "buff");
   }
 }
 
@@ -1255,11 +1279,11 @@ function distributeUltPassion(extra) {
   }
 }
 
-function castMldUlt(c, viaStory) {
+function castMldUlt(c, viaStory, asCounter) {
   const multBase = c.portray >= 4 ? 500 : c.def.ult.mult;
   const activeExtra = c.portray >= 5 ? 600 : c.def.ult.activeExtra;
   let mult = multBase + (viaStory ? 0 : activeExtra);
-  const r = calcHit(c, { mult, isUlt: true });
+  const r = calcHit(c, Object.assign({ mult, isUlt: true }, asCounter ? { isCounter: true } : {}));
   dealDamage(c, r.dmg, "不再迷失的归途者（主动）", r);
   applyExtract(c);
   const ritualLayers = c.portray >= 4 ? 8 : 6;
@@ -1281,10 +1305,9 @@ function castJUlt(c) {
   if (c.def.reverie) {
     mult += mult;
     overMult = overflow * 50;
-    const t = S.teamBuffs.traumaUp;
-    t.v = Math.min(99, burn * 2.5);
-    t.d = 3;
-    log("J 狂想：全队创伤加成 +" + t.v + "%（3回合）", "buff");
+    const traumaV = Math.min(99, burn * 2.5);
+    addTeam("traumaUp", "创伤加成提高", traumaV, 3);
+    log("J 狂想：全队创伤加成 +" + traumaV + "%（3回合）", "buff");
   } else {
     overMult = overflow * (c.portray >= 4 ? 15 : 10);
   }
@@ -1302,11 +1325,11 @@ function castRanUlt(c) {
   addStatus(c.status, "加护", 0, 4);
   log("小瑞安侬 大招：其他友方获得尘酿鹰，自身加护4回合（主动咒语不耗行动点并升华）", "buff");
   if (c.psychube === "rain") {
-    const t = S.teamBuffs.critDmgUp;
     const v = PSYCHUBES.rain.amp.ultTeamCrit;
-    t.v = Math.max(t.v, v);
-    t.d = 3;
-    log("昨日雨声轻：全队暴击创伤 +" + v + "%（3回合）", "buff");
+    const t = teamBuffEntry("critDmgUp", "昨日雨声轻");
+    const newV = Math.max(t && t.d > 0 ? t.v : 0, v);
+    addTeam("critDmgUp", "昨日雨声轻", newV, 3, { named: true });
+    log("昨日雨声轻：全队暴击创伤 +" + newV + "%（3回合）", "buff");
   }
 }
 
@@ -1345,11 +1368,11 @@ function castRanUltFromStory(c) {
   addStatus(c.status, "加护", 0, 4);
   log("小瑞安侬 通过虚构故事集释放：尘酿鹰+加护", "buff");
   if (c.psychube === "rain") {
-    const t = S.teamBuffs.critDmgUp;
     const v = PSYCHUBES.rain.amp.ultTeamCrit;
-    t.v = Math.max(t.v, v);
-    t.d = 3;
-    log("昨日雨声轻：全队暴击创伤 +" + v + "%（3回合）", "buff");
+    const t = teamBuffEntry("critDmgUp", "昨日雨声轻");
+    const newV = Math.max(t && t.d > 0 ? t.v : 0, v);
+    addTeam("critDmgUp", "昨日雨声轻", newV, 3, { named: true });
+    log("昨日雨声轻：全队暴击创伤 +" + newV + "%（3回合）", "buff");
   }
 }
 
@@ -1421,11 +1444,11 @@ function dummyAttack() {
   const mld = byId("mld");
   if (mld && (mld.status["闪击"] || mld.status["攻坚"])) {
     if (mld.status["攻坚"]) {
-      castMldUlt(mld, true);
+      castMldUlt(mld, true, true);
       log("莫莉德尔 攻坚反击：释放不再迷失的归途者", "buff");
     } else {
       const s1 = mld.def.skills.find(s => s.id === "s1");
-      castAttack(mld, { rank: 1 }, s1);
+      castAttack(mld, { rank: 1 }, s1, { isCounter: true });
       log("莫莉德尔 闪击反击：反制将过往摧毁", "buff");
     }
     const gain = mld.portray >= 3 ? 2 : 1;
@@ -1486,7 +1509,13 @@ function tickStatuses() {
   }
   for (const k of Object.keys(S.teamBuffs)) {
     const st = S.teamBuffs[k];
-    if (st && st.d > 0) {
+    if (Array.isArray(st)) {
+      for (let i = st.length - 1; i >= 0; i--) {
+        const e = st[i];
+        e.d -= 1;
+        if (e.d <= 0) st.splice(i, 1);
+      }
+    } else if (st && st.d > 0) {
       st.d -= 1;
       if (st.d <= 0) { st.v = 0; if (k === "lingxi") st.stacks = 0; }
     }
