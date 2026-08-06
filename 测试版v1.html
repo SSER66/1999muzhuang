@@ -1413,22 +1413,25 @@ function castXgUlt(c, cost) {
   const g = c.status["群像"] ? c.status["群像"].stacks : 0;
   const baseMult = c.portray >= 5 ? 650 : (c.portray >= 3 ? 550 : c.def.ult.mult);
   const baseExtra = c.portray >= 5 ? 650 : (c.portray >= 3 ? 550 : c.def.ult.mainExtra);
-  let mult = baseMult + (c.def.reverie ? c.def.ult.mult : 0);
-  let mainExtra = baseExtra + (c.def.reverie ? c.def.ult.mainExtra : 0);
-  const perD = c.def.reverie ? 100 : (c.portray >= 2 ? 70 : 50);
-  const perG = c.def.reverie ? 50 : (c.portray >= 2 ? 35 : 25);
+  // 狂想Ⅱ的“基础现实创伤100%”跟随当前塑造后的基础倍率，而不是固定450%
+  let mult = baseMult + (c.def.reverie ? baseMult : 0);
+  let mainExtra = baseExtra + (c.def.reverie ? baseExtra : 0);
+  const basePerD = c.portray >= 2 ? 70 : 50;
+  const basePerG = c.portray >= 2 ? 35 : 25;
+  const perD = c.def.reverie ? basePerD * 2 : basePerD;
+  const perG = c.def.reverie ? basePerG * 2 : basePerG;
   const stackMain = d * perD + g * perG;
   const stackAoe = g * perG;
   const extra = Math.max(0, cost - 5);
   const ritualBase = c.portray >= 5 ? 6 : 3;
+  const ritualBonus = ritualBase * (c.def.reverie ? 2 : 1);
   const ps = PSYCHUBES[c.psychube];
   const lastRollBonus = ps.id === "lastRoll" ? ps.amp.ritPerPassion * cost : 0;
-  const xgBonus = extra * ritualBase;
+  const xgBonus = extra * ritualBonus;
   const totalRitBonus = lastRollBonus + xgBonus;
   const doubleRit = extra >= 5; // 10激情时威力翻倍
   const appliedRitBonus = doubleRit ? totalRitBonus * 2 : totalRitBonus;
   const psRit = lastRollBonus;
-  if (c.def.reverie) { /* 狂想Ⅱ：每额外激情=基础100%，不额外改动 */ }
   const oldRitual = c.stats.ritualPower;
   c.stats.ritualPower += appliedRitBonus;
   let critBuff = 0;
