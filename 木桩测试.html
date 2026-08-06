@@ -1040,7 +1040,7 @@ function playCard(uid) {
   selectedCard = null;
   moveSource = null;
   c.passion = Math.min(c.maxPassion, c.passion + (isUlt ? 0 : 1));
-  if (!isUlt) addTuningEnergy(4);
+  addTuningEnergy(4);
   if (isPrep) castStoryBook();
   else if (isUlt) castUltCard(c);
   else if (skill.type === "attack") castAttack(c, card, skill);
