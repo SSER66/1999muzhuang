@@ -113,6 +113,7 @@
     margin: 10px 0;
   }
   .card {
+    position: relative;
     border: 1px solid var(--line);
     border-radius: 8px;
     padding: 8px;
@@ -127,8 +128,9 @@
   .card:hover { box-shadow: 0 2px 8px rgba(18,58,92,.12); }
   .card.selected { outline: 2px solid var(--accent); }
   .card.moving { outline: 2px solid #d69e2e; }
-  .card .cname { font-size: 11px; color: var(--muted); }
-  .card .sname { font-weight: 600; font-size: 13px; }
+  .card .skill-icon { position: absolute; top: 6px; right: 6px; width: 34px; height: 34px; object-fit: contain; border: 1px solid #d8dee6; border-radius: 6px; background: #fff; }
+  .card .cname { font-size: 11px; color: var(--muted); padding-right: 40px; }
+  .card .sname { font-weight: 600; font-size: 13px; padding-right: 40px; }
   .card .rank { font-size: 11px; color: #155a91; }
   .card .actions { margin-top: auto; display: flex; gap: 4px; }
   .card .actions button { font-size: 11px; padding: 3px 6px; }
@@ -351,7 +353,7 @@ const CHARACTERS = {
     reverie: null,
     maxPassion: 5, defaultPsychube: "rain",
     skills: [
-      { id: "s1", name: "囫囵囵咒", mult: [200, 300, 500], multAmp: [400, 600, 1000], target: "aoe", type: "attack" },
+    { id: "s1", name: "囫囵吞咒", mult: [200, 300, 500], multAmp: [400, 600, 1000], target: "aoe", type: "attack" },
       { id: "s2", name: "悄冥冥术阵", mult: [0, 0, 0], target: "team", type: "buff" }
     ],
     ult: { name: "唱予无忧之诗", type: "buff", target: "aoe" }
@@ -1139,7 +1141,7 @@ function castRanSkill(c, card, skill, rank) {
   const amp = c.status["加护"];
   const mult = amp ? skill.multAmp[rank - 1] : skill.mult[rank - 1];
   const r = calcHit(c, { mult });
-  dealDamage(c, r.dmg, (amp ? "囫囵囵咒·加护 " : "囫囵囵咒 ") + rankName(rank) + "阶", r);
+  dealDamage(c, r.dmg, (amp ? "囫囵吞咒·加护 " : "囫囵吞咒 ") + rankName(rank) + "阶", r);
   applyExtract(c);
   c.buffs.atkUp = { v: [12, 13, 14][rank - 1], d: 3 };
   if (amp) {
@@ -1176,6 +1178,24 @@ function afterRanSpell() {
 }
 
 function rankName(r) { return ["", "一", "二", "三"][r] || ""; }
+function skillIconFile(name) {
+  const map = {
+    "字的隐喻": "技能图标/字的隐喻.png",
+    "词的意象": "技能图标/词的意象.png",
+    "将过往摧毁": "技能图标/将过往摧毁.png",
+    "将明日弥合": "技能图标/将明日弥合.png",
+    "囫囵吞咒": "技能图标/囫囵吞咒.png",
+    "悄冥冥术阵": "技能图标/悄冥冥术阵.png",
+    "硬度测试": "技能图标/硬度测试.png",
+    "热处理": "技能图标/热处理.png",
+    "下现实主义迷宫": "技能图标/下现实主义迷宫.png",
+    "不再迷失的归途者": "技能图标/不再迷失的归途者.png",
+    "唱予无忧之诗": "技能图标/唱予无忧之诗.png",
+    "飞跃海特街！": "技能图标/飞跃海特街！.png",
+    "虚构故事集": "技能图标/虚构故事集.png"
+  };
+  return map[name] || null;
+}
 function capStacks(c, id, cap) {
   if (c.status[id] && c.status[id].stacks > cap) c.status[id].stacks = cap;
 }
@@ -1769,9 +1789,11 @@ function renderHand() {
       : card.skillId === "ult" ? c.def.ult
       : isUniversal ? { name: "调律·万能" }
       : c.def.skills.find(s => s.id === card.skillId);
+    const iconFile = skillIconFile(skill.name);
     const sel = selectedCard === card.uid ? " selected" : (moveSource === card.uid ? " moving" : "");
     const rankLabel = isUniversal ? "万能" : (card.skillId === "ult" ? "至终的仪式" : (card.rank ? rankName(card.rank) + "阶" : "预备咒语"));
     return '<div class="card' + sel + '" onclick="selectCard(\'' + card.uid + '\')">' +
+      (iconFile ? '<img class="skill-icon" src="' + iconFile + '" alt="' + skill.name + '">' : '') +
       '<div class="cname">' + (c ? c.name : "调律") + '</div>' +
       '<div class="sname">' + skill.name + '</div>' +
       '<div class="rank">' + rankLabel + '</div>' +
