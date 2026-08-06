@@ -34,6 +34,10 @@ python -m http.server 8765
 http://localhost:8765/木桩测试.html
 ```
 
+### 方式三：单文件版
+
+直接下载并双击 `测试版v1.html` 即可使用，无需安装依赖或启动服务器。单文件版已把 `data/` 数据全部内联。
+
 ## 使用说明
 
 ### 1. 配置角色
@@ -88,6 +92,8 @@ http://localhost:8765/木桩测试.html
 ```text
 木桩DPR/
 ├─ 木桩测试.html          # 主页面与全部战斗逻辑
+├─ 测试版v1.html          # 单文件版，可双击直接打开
+├─ index.html             # GitHub Pages 跳转页
 ├─ README.md              # 使用说明
 ├─ data/
 │  ├─ portray.js          # 四位角色塑造描述
