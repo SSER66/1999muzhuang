@@ -128,11 +128,11 @@
   .card:hover { box-shadow: 0 2px 8px rgba(18,58,92,.12); }
   .card.selected { outline: 2px solid var(--accent); }
   .card.moving { outline: 2px solid #d69e2e; }
-  .card .skill-icon { position: absolute; top: 6px; right: 6px; width: 34px; height: 34px; object-fit: contain; border: 1px solid #d8dee6; border-radius: 6px; background: #fff; }
-  .card .cname { font-size: 11px; color: var(--muted); padding-right: 40px; }
-  .card .sname { font-weight: 600; font-size: 13px; padding-right: 40px; }
-  .card .rank { font-size: 11px; color: #155a91; }
-  .card .actions { margin-top: auto; display: flex; gap: 4px; }
+  .card .skill-icon { position: absolute; top: 6px; right: 6px; bottom: 6px; width: auto; max-width: 64px; height: auto; object-fit: contain; border: 1px solid #d8dee6; border-radius: 6px; background: #fff; }
+  .card .cname { font-size: 11px; color: var(--muted); padding-right: 68px; }
+  .card .sname { font-weight: 600; font-size: 13px; padding-right: 68px; }
+  .card .rank { font-size: 11px; color: #155a91; padding-right: 68px; }
+  .card .actions { margin-top: auto; display: flex; gap: 4px; flex-wrap: wrap; padding-right: 68px; }
   .card .actions button { font-size: 11px; padding: 3px 6px; }
   .move-targets { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; align-items: center; }
   .move-targets button { font-size: 11px; padding: 3px 7px; }
