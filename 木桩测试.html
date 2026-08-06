@@ -1395,6 +1395,7 @@ function releaseRhiannon() {
   pushUndo();
   ran.energy -= 100;
   S.extraRound = true;
+  S.tuningUsed = { s1: 0, s2: 0 };
   S.deck.push(...S.hand.filter(x => (x.skillId === "s1" || x.skillId === "s2") && !x.tuningTemp));
   S.hand = [];
   S.maxActionPoints = 4;
