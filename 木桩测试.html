@@ -661,7 +661,8 @@ function refreshStats() {
     }
     if (c.id === "j" && c.status["燃烧"] && c.status["燃烧"].stacks > 0) {
       const furnaceRate = c.portray >= 5 ? 1.5 : (c.portray >= 2 ? 1 : 0.5);
-      atk += atk * c.status["燃烧"].stacks * furnaceRate / 100;
+      const furnaceMult = c.def.reverie ? 2 : 1;
+      atk += atk * c.status["燃烧"].stacks * furnaceRate * furnaceMult / 100;
     }
     c.stats = {
       atk: Math.round(atk), maxHp: Math.round(hp), hp: Math.round(hp), defR: Math.round(defR), defM: Math.round(defM),
