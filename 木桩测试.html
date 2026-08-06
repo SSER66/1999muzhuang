@@ -644,8 +644,6 @@ function refreshStats() {
     const mldBuff = byId("mld");
     if (c.status["武装整修"]) critRate += mldBuff && mldBuff.portray >= 2 ? 40 : 30;
     if (c.id === "mld" && c.status["教条"]) ritualPower += c.portray >= 5 ? 30 : 20;
-    // 礼仪：暴击创伤（释放仪式时）
-    if (c.status["礼仪：暴击创伤"]) critDmgExtra += c.status["礼仪：暴击创伤"].stacks * 3;
     // 在四方城外（额外行动后暴击创伤）
     if (c.psychube === "outside" && c.status["四方城"] && c.status["四方城"].stacks > 0) {
       const ps2 = PSYCHUBES.outside;
@@ -945,6 +943,7 @@ function calcHit(c, opts) {
   const crit = Math.random() * 100 < critRate;
   const dummyCritDef = dmy.critDef + (dmy.status["暴击防御降低"] ? dmy.status["暴击防御降低"].v || 0 : 0);
   let critDmg = st.critDmg - dummyCritDef;
+  if (opts.isUlt && c.status["礼仪：暴击创伤"]) critDmg += c.status["礼仪：暴击创伤"].stacks * 3;
   const critTerm = crit ? Math.max(1, critDmg / 100) : 1;
   let power = 1;
   if (opts.isUlt) power += st.ritualPower / 100;
