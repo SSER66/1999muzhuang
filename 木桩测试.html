@@ -1753,6 +1753,21 @@ function statusChips(c) {
     }
   }
   if (c.id === "ran") parts.push('<span class="chip gold">使役通感 ' + Math.floor(c.energy) + '%</span>');
+  return parts.join("") + teamBuffChips();
+}
+
+function teamBuffChips() {
+  const parts = [];
+  const areas = ["traumaUp", "dmgUp", "spellPower", "ritualPower", "critDmgUp", "traumaResUp", "counterTrauma"];
+  const areaLabels = {
+    traumaUp: "创伤", dmgUp: "创伤", spellPower: "术法", ritualPower: "仪式",
+    critDmgUp: "暴创", traumaResUp: "受创减免", counterTrauma: "反击创伤"
+  };
+  for (const key of areas) {
+    for (const e of teamBuffArr(key)) {
+      if (e.d > 0) parts.push('<span class="chip blue">' + escapeHtml(e.name) + '（' + areaLabels[key] + '）+' + round1(e.v) + '%·' + e.d + '回合</span>');
+    }
+  }
   return parts.join("");
 }
 
