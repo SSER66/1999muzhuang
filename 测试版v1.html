@@ -1666,7 +1666,8 @@ function castJCounter(c) {
   let mult = base;
   if (reverie) {
     const burn = c.status["燃烧"] ? c.status["燃烧"].stacks : 0;
-    mult += 900 + burn * (lostHpBonus * 0.5);
+    // 狂想Ⅳ的 900% 是基础倍率的 900%，即额外 +base*9
+    mult += base * 9 + burn * (lostHpBonus * 0.5);
   }
   log("J 高温回火反击（护盾队友受击）", "buff");
   const r = calcHit(c, { mult, isCounter: true });
