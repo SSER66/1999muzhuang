@@ -942,7 +942,7 @@ function calcHit(c, opts) {
   const dummyCritDef = dmy.critDef + (dmy.status["暴击防御降低"] ? dmy.status["暴击防御降低"].v || 0 : 0);
   let critDmg = st.critDmg - dummyCritDef;
   if (opts.isUlt && c.status["礼仪：暴击创伤"]) critDmg += c.status["礼仪：暴击创伤"].stacks * 3;
-  const critTerm = crit ? Math.max(1, critDmg / 100) : 1;
+  const critTerm = crit ? Math.max(1.1, critDmg / 100) : 1;
   let power = 1;
   if (opts.isUlt) power += st.ritualPower / 100;
   else power += st.spellPower / 100;
