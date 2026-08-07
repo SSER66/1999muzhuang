@@ -620,13 +620,12 @@ function refreshStats() {
     let defR = baseDefR + ps.flat.defR + res.flat.defR + baseDefR * res.pct.defR / 100;
     let defM = baseDefM + ps.flat.defM + res.flat.defM + baseDefM * res.pct.defM / 100;
     if (ps.main.hp) hp += hp * ps.main.hp / 100;
-    // 昨日雨声轻：百灵百验进战属性（增幅5）
-    if (c.id === "ran" && c.psychube === "rain") {
-      atk += baseAtk * ps.amp.startAtk / 100;
-      hp += baseHp * ps.amp.startHp / 100;
-    }
-    const hpUp = c.buffs.maxHpUp.v;
-    hp = Math.round(hp * (1 + hpUp / 100));
+    // 局内攻击/生命百分比：昨日雨声轻 + 自身技能 buff 加算，独立于共鸣百分比
+    const inBattleAtkPct = (c.id === "ran" && c.psychube === "rain" ? ps.amp.startAtk : 0) + (c.buffs.atkUp.d > 0 ? c.buffs.atkUp.v : 0);
+    const inBattleHpPct = (c.id === "ran" && c.psychube === "rain" ? ps.amp.startHp : 0) + (c.buffs.maxHpUp.d > 0 ? c.buffs.maxHpUp.v : 0);
+    if (inBattleAtkPct > 0) atk = atk * (1 + inBattleAtkPct / 100);
+    if (inBattleHpPct > 0) hp = hp * (1 + inBattleHpPct / 100);
+    hp = Math.round(hp);
     let critRate = def.base.critTech / 3000 * 100 + res.pct.critRate;
     let critDmg = 130 + def.base.critTech / 2000 * 100 + res.pct.critDmg;
     critRate += ps.main.critRate || 0;
@@ -926,9 +925,8 @@ function calcHit(c, opts) {
   const dmy = dummy();
   const traumaType = opts.traumaType || c.def.trauma;
   const def = traumaType === "现实" ? dmy.defR : dmy.defM;
-  const atkUp = c.buffs.atkUp.d > 0 ? c.buffs.atkUp.v / 100 : 0;
   const pen = 0;
-  let atkDef = st.atk * (1 + atkUp) - def * (1 - pen);
+  let atkDef = st.atk - def * (1 - pen);
   if (atkDef < st.atk * 0.1) atkDef = st.atk * 0.1;
   let traumaUp = st.traumaUp;
   if (opts.isUlt && c.status["战备部署"]) {
@@ -1121,7 +1119,8 @@ function castBuffSkill(c, card, skill) {
     addTeam("ritualPower", "群鸟之歌", birdPower, 3, { named: true });
     log("小瑞安侬 全队获得群鸟之歌：术法/仪式威力+" + birdPower + "%（3回合）", "buff");
     const hpUp = [12, 13, 14][card.rank - 1];
-    c.buffs.maxHpUp = { v: hpUp, d: 3 };
+    c.buffs.atkUp = { v: hpUp, d: 3 };
+    log("小瑞安侬 自身局内攻击提升 +" + hpUp + "%（3回合）", "buff");
     if (c.status["加护"]) {
       const lingxiStacks = S.teamBuffs.lingxi.stacks || 0;
       const baseUp = c.portray >= 3 ? 20 : 15;
@@ -1141,7 +1140,9 @@ function castRanSkill(c, card, skill, rank) {
   const r = calcHit(c, { mult });
   dealDamage(c, r.dmg, (amp ? "囫囵吞咒·加护 " : "囫囵吞咒 ") + rankName(rank) + "阶", r);
   applyExtract(c);
-  c.buffs.atkUp = { v: [12, 13, 14][rank - 1], d: 3 };
+  const hpUp = [12, 13, 14][rank - 1];
+  c.buffs.maxHpUp = { v: hpUp, d: 3 };
+  log("小瑞安侬 自身局内生命提升 +" + hpUp + "%（3回合）", "buff");
   if (amp) {
     const lingxiStacks = S.teamBuffs.lingxi.stacks || 0;
     const baseDebuff = c.portray >= 3 ? 20 : 15;

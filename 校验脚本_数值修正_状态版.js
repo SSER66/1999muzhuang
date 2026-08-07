@@ -14,6 +14,10 @@
   setResonanceMode('mld', 'r10');
   setResonanceMode('j', 'r10');
   newBattle();
+  // 木桩设置：现实防御1600，暴击防御30%，受创减免60%
+  dummy().defR = 1600;
+  dummy().critDef = 30;
+  dummy().traumaRes = 60;
 
   const xg = byId('xg');
   const mld = byId('mld');
@@ -40,6 +44,9 @@
   S.teamBuffs.lingxi = { stacks: 7, dur: 3 };
   mld.status['战备'] = { stacks: 33, batches: [{ stacks: 33, dur: 3 }] };
   j.status['燃烧'] = { stacks: 8, dur: 0 };
+  // 小瑞安侬局内 buff：悄冥冥术阵攻击+12%，囫囵吞咒生命+12%
+  byId('ran').buffs.atkUp = { v: 12, d: 3 };
+  byId('ran').buffs.maxHpUp = { v: 12, d: 3 };
 
   refreshStats();
   syncUltCard(xg);
