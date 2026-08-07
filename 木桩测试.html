@@ -1280,19 +1280,31 @@ function castXgUlt(c, cost) {
   const appliedRitBonus = doubleRit ? totalRitBonus * 2 : totalRitBonus;
   const psRit = lastRollBonus;
   const oldRitual = c.stats.ritualPower;
+  // 狂想3：每层独白/群像为本次仪式提供1%创伤加成，上限40%
+  const xgTraumaBonus = Math.min(40, d + g);
+  const oldTrauma = c.stats.traumaUp;
+  if (xgTraumaBonus > 0) c.stats.traumaUp += xgTraumaBonus;
   // 10激情翻倍作用于包含基础仪式威力在内的整项
   const effectiveRitual = (oldRitual + totalRitBonus) * (doubleRit ? 2 : 1);
   c.stats.ritualPower = effectiveRitual;
   let critBuff = 0;
   if (ps.id === "lastRoll") {
     critBuff = Math.min(ps.amp.cap, cost) * ps.amp.critPerPassion;
-    c.stats.critDmg += critBuff;
+    // 最后的投掷：暴击创伤永久叠加，像家庭指导员一样进入队伍 buff
+    const e = teamBuffEntry("critDmgUp", "最后的投掷");
+    const oldV = e && e.d > 0 ? e.v : 0;
+    const newV = Math.min(ps.amp.cap * ps.amp.critPerPassion, oldV + critBuff);
+    const inc = Math.max(0, newV - oldV);
+    addTeam("critDmgUp", "最后的投掷", newV, 999, { named: true });
+    c.stats.critDmg += inc;
+    critBuff = inc;
   }
   const r = calcHit(c, { mult, mainExtra: mainExtra + stackMain, extraMult: stackAoe, isUlt: true });
   dealDamage(c, r.dmg, "下现实主义迷宫", Object.assign({}, r, { isUlt: true, psRit, psCrit: critBuff }));
   applyExtract(c);
   c.stats.ritualPower = oldRitual;
   c.stats.critDmg -= critBuff;
+  c.stats.traumaUp = oldTrauma;
   const consumed = d + g;
   c.status["独白"] = { stacks: 0, dur: 0 };
   c.status["群像"] = { stacks: 0, dur: 0 };
@@ -1304,7 +1316,7 @@ function castXgUlt(c, cost) {
     log("虚构集 筹备·虚构集 +" + prepGain + "（上限" + maxPrep + "）", "buff");
   }
   distributeUltPassion(extra);
-  log("虚构集 大招：独白" + d + " 群像" + g + "，额外激情" + extra + "，仪式威力合计+" + round1(effectiveRitual) + "%（基础" + round1(oldRitual) + "% + 心相" + round1(lastRollBonus) + "% + 自身" + round1(xgBonus) + "%" + (doubleRit ? "，10激情整项翻倍" : "") + "）", "buff");
+  log("虚构集 大招：独白" + d + " 群像" + g + "，额外激情" + extra + "，狂想3创伤加成+" + xgTraumaBonus + "%（每层1%，上限40），仪式威力合计+" + round1(effectiveRitual) + "%（基础" + round1(oldRitual) + "% + 心相" + round1(lastRollBonus) + "% + 自身" + round1(xgBonus) + "%" + (doubleRit ? "，10激情整项翻倍" : "") + "）", "buff");
 }
 
 function distributeUltPassion(extra) {
