@@ -1279,7 +1279,8 @@ function castXgUlt(c, cost) {
   const appliedRitBonus = doubleRit ? totalRitBonus * 2 : totalRitBonus;
   const psRit = lastRollBonus;
   const oldRitual = c.stats.ritualPower;
-  c.stats.ritualPower += appliedRitBonus;
+  // 10激情翻倍作用于包含基础仪式威力在内的整项
+  c.stats.ritualPower = (oldRitual + totalRitBonus) * (doubleRit ? 2 : 1);
   let critBuff = 0;
   if (ps.id === "lastRoll") {
     critBuff = Math.min(ps.amp.cap, cost) * ps.amp.critPerPassion;
