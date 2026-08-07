@@ -1280,7 +1280,8 @@ function castXgUlt(c, cost) {
   const psRit = lastRollBonus;
   const oldRitual = c.stats.ritualPower;
   // 10激情翻倍作用于包含基础仪式威力在内的整项
-  c.stats.ritualPower = (oldRitual + totalRitBonus) * (doubleRit ? 2 : 1);
+  const effectiveRitual = (oldRitual + totalRitBonus) * (doubleRit ? 2 : 1);
+  c.stats.ritualPower = effectiveRitual;
   let critBuff = 0;
   if (ps.id === "lastRoll") {
     critBuff = Math.min(ps.amp.cap, cost) * ps.amp.critPerPassion;
@@ -1302,7 +1303,7 @@ function castXgUlt(c, cost) {
     log("虚构集 筹备·虚构集 +" + prepGain + "（上限" + maxPrep + "）", "buff");
   }
   distributeUltPassion(extra);
-  log("虚构集 大招：独白" + d + " 群像" + g + "，额外激情" + extra + "，仪式威力+" + round1(appliedRitBonus) + "%（心相" + round1(lastRollBonus) + "% + 自身" + round1(xgBonus) + "%" + (doubleRit ? "，10激情翻倍" : "") + "）", "buff");
+  log("虚构集 大招：独白" + d + " 群像" + g + "，额外激情" + extra + "，仪式威力合计+" + round1(effectiveRitual) + "%（基础" + round1(oldRitual) + "% + 心相" + round1(lastRollBonus) + "% + 自身" + round1(xgBonus) + "%" + (doubleRit ? "，10激情整项翻倍" : "") + "）", "buff");
 }
 
 function distributeUltPassion(extra) {
