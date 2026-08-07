@@ -1265,7 +1265,8 @@ function castXgUlt(c, cost) {
   const basePerG = c.portray >= 2 ? 35 : 25;
   const perD = c.def.reverie ? basePerD * 2 : basePerD;
   const perG = c.def.reverie ? basePerG * 2 : basePerG;
-  const stackMain = d * perD + g * perG;
+  // 群像只贡献 AOE，独白只贡献主目标额外
+  const stackMain = d * perD;
   const stackAoe = g * perG;
   const extra = Math.max(0, cost - 5);
   const ritualBase = c.portray >= 5 ? 6 : 3;
