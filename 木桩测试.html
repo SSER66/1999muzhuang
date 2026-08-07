@@ -202,11 +202,11 @@
     <div id="dummyView"></div>
     <details class="config">
       <summary>木桩配置</summary>
-      <label for="cfgDefR">现实防御</label><input id="cfgDefR" name="cfgDefR" type="number" value="1300">
+      <label for="cfgDefR">现实防御</label><input id="cfgDefR" name="cfgDefR" type="number" value="1600">
       <label for="cfgDefM">精神防御</label><input id="cfgDefM" name="cfgDefM" type="number" value="1300">
       <label for="cfgCritRes">抗爆率 %</label><input id="cfgCritRes" name="cfgCritRes" type="number" value="0">
-      <label for="cfgCritDef">暴击防御 %</label><input id="cfgCritDef" name="cfgCritDef" type="number" value="20">
-      <label for="cfgTraumaRes">受创减免 %</label><input id="cfgTraumaRes" name="cfgTraumaRes" type="number" value="30">
+      <label for="cfgCritDef">暴击防御 %</label><input id="cfgCritDef" name="cfgCritDef" type="number" value="30">
+      <label for="cfgTraumaRes">受创减免 %</label><input id="cfgTraumaRes" name="cfgTraumaRes" type="number" value="55">
       <label for="cfgAdv">克制系数 %</label><input id="cfgAdv" name="cfgAdv" type="number" value="30">
       <label for="cfgAfflatus">灵感</label>
       <select id="cfgAfflatus">
@@ -539,7 +539,7 @@ const TUNING_DELTA = {
   }
 };
 
-const LAST_PORTRAY = {};
+const LAST_PORTRAY = { xg: 5, ran: 2 };
 let S = null;
 let selectedCard = null;
 let moveSource = null;
@@ -582,7 +582,7 @@ function makeChar(id, cfg) {
   const c = {
     id, name: def.name, def,
     psychube: conf.psychube || def.defaultPsychube,
-    resonanceMode: conf.resonanceMode || "r10",
+    resonanceMode: conf.resonanceMode || (id === "xg" ? "r15" : "r10"),
     variant: conf.variant || "平和",
     portray: conf.portray !== undefined ? conf.portray : (LAST_PORTRAY[id] || 0),
     customRes: {
@@ -716,8 +716,8 @@ function newBattle() {
     deck: [],
     team: ORDER.map((id, i) => makeChar(id, prevConfigs ? prevConfigs[i] : null)),
     dummy: {
-      hp: 2100000000, maxHp: 2100000000, defR: 1300, defM: 1300,
-      critRes: 0, critDef: 20, traumaRes: 30, adv: 30, afflatus: "智",
+      hp: 2100000000, maxHp: 2100000000, defR: 1600, defM: 1300,
+      critRes: 0, critDef: 30, traumaRes: 55, adv: 30, afflatus: "智",
       status: emptyStatus(), burnFrom: null
     },
     teamBuffs: {
@@ -1248,7 +1248,7 @@ function onPassionSpent(c, amount) {
     const t = teamBuffEntry("critDmgUp", "家庭指导员");
     const base = t && t.d > 0 ? t.v / v : 0;
     const newV = Math.min(mldPs.amp.cap, base + amount) * v;
-    const newD = t ? Math.max(t.d, 1) : 1;
+    const newD = 999; // 家庭指导员暴击创伤永久持续
     addTeam("critDmgUp", "家庭指导员", newV, newD, { named: true });
     log("家庭指导员：全队暴击创伤 +" + newV + "%", "buff");
   }
